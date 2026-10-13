@@ -24,6 +24,8 @@ public:
             ++dropped_;
             lost = true;
         }
+        // Index is always taken modulo N, so it is in range.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         items_[(head_ + count_) % N] = item;
         ++count_;
 
@@ -35,6 +37,8 @@ public:
             return std::nullopt;
         }
 
+        // head_ < N is a class invariant (always advanced modulo N).
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         return Entry{first_id_, items_[head_]};
     }
 
@@ -42,6 +46,8 @@ public:
         if (count_ == 0 || id != first_id_) {
             return false;
         }
+        // Index is always taken modulo N, so it is in range.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         head_ = (head_ + 1) % N;
         ++first_id_;
         --count_;
