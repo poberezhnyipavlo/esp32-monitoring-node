@@ -1,0 +1,4 @@
+# Pinned tools: the same versions on the Mac and in CI.
+clang-format==21.1.8
+clang-tidy==21.1.6
+platformio==6.2.0
