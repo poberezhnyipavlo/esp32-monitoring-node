@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdint>
 
 #include "RetryTimer.h"
@@ -24,7 +25,7 @@ TEST(RetryTimer, WaitsBaseAfterFirstFailure) {
 TEST(RetryTimer, DoublesUpToMax) {
     RetryTimer t(1000, 30000);
     uint32_t now = 0;
-    const uint32_t expected[] = {1000, 2000, 4000, 8000, 16000, 30000, 30000};
+    const std::array<uint32_t, 7> expected = {1000, 2000, 4000, 8000, 16000, 30000, 30000};
     for (const uint32_t delay : expected) {
         t.failed(now);
         EXPECT_EQ(t.delayMs(), delay);
