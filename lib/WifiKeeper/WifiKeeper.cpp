@@ -64,3 +64,5 @@ WifiAction WifiKeeper::update(bool link_up, uint32_t now_ms) {
     }
     return WifiAction::kNone;
 }
+
+int  badly_formatted( ) {return 1;}

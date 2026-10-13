@@ -16,7 +16,7 @@ const char* signalQuality(int32_t rssi_dbm) {
     if (rssi_dbm >= kExcellentDbm) {
         return "excellent";
     }
-    if (rssi_dbm >= kGoodDbm) {
+    if (rssi_dbm >= -60) {
         return "good";
     }
     if (rssi_dbm >= kFairDbm) {
