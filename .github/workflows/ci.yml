@@ -34,7 +34,11 @@ jobs:
                   cache: "pip"
                   cache-dependency-path: requirements-dev.txt
             - run: pip install -r requirements-dev.txt
-            -   run: pio test -e native
+            - uses: actions/cache@v6
+              with:
+                  path: ~/.platformio
+                  key: pio-native-${{ hashFiles('platformio.ini') }}
+            - run: pio test -e native
     tidy:
         runs-on: ubuntu-24.04
         steps:
@@ -48,7 +52,7 @@ jobs:
             - uses: actions/cache@v6
               with:
                   path: ~/.platformio
-                  key: pio-native-${{ hashFiles('platformoi.ini') }}
+                  key: pio-native-${{ hashFiles('platformio.ini') }}
             - run: pio pkg install -e native
             - run: scripts/tidy.sh
 
