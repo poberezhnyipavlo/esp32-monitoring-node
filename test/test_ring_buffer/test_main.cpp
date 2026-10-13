@@ -48,6 +48,7 @@ TEST(RingBuffer, PopWithStaleIdDoesNothing) {
     RingBuffer<int, 2> b;
     b.push(1);
     const auto taken = b.front();
+    ASSERT_TRUE(taken.has_value());
     b.push(2);
     b.push(3);
     EXPECT_FALSE(b.popFront(taken->id));
@@ -60,7 +61,9 @@ TEST(RingBuffer, WrapsAroundManyTimes) {
     for (int i = 0; i < 1000; ++i) {
         b.push(i);
         if (i % 3 == 0) {
-            b.popFront(b.front()->id);
+            const auto head = b.front();
+            ASSERT_TRUE(head.has_value());
+            b.popFront(head->id);
         }
     }
     int prev = -1;
