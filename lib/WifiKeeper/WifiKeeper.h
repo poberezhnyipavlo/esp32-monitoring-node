@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-enum class WifiAction { None, Connect, Connected, Timeout, Lost };
+enum class WifiAction : uint8_t { None, Connect, Connected, Timeout, Lost };
 
 class WifiKeeper {
 public:
@@ -15,7 +15,7 @@ public:
     [[nodiscard]] uint32_t backoffMs() const { return backoff_ms_; }
 
 private:
-    enum class State { Start, Connecting, Connected, Waiting };
+    enum class State : uint8_t { Start, Connecting, Connected, Waiting };
 
     void startWaiting(uint32_t now_ms);
     void growBackoff();
