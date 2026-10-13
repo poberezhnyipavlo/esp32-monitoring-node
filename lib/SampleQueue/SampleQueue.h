@@ -26,22 +26,22 @@ public:
     };
 
     bool push(const Sample& s) {
-        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return buffer_.push(s);
     }
 
     [[nodiscard]] std::optional<Entry> front() const {
-        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return buffer_.front();
     }
 
     bool popFront(uint32_t id) {
-        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return buffer_.popFront(id);
     }
 
     [[nodiscard]] Stats stats() const {
-        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return Stats{buffer_.size(), buffer_.dropped()};
     }
 
