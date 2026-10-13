@@ -13,7 +13,7 @@ if [[ ! -d "$GTEST_INCLUDE" ]]; then
 fi
 
 FLAGS=(-std=c++17)
-for dir in lib/*/; do FLAGS+=("-I${dir%/}"); done
+for dir in lib/*/; do FLAGS+=("-I$PWD/${dir%/}"); done
 if [[ "$(uname)" == "Darwin" ]]; then
     FLAGS+=(-isysroot "$(xcrun --show-sdk-path)")  # non-Apple clang needs the SDK to find libc++
 fi
