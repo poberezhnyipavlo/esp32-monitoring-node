@@ -7,56 +7,56 @@
 
 template <typename T, size_t N>
 class RingBuffer {
-  static_assert(N > 0, "RingBuffer must hold at least one item");
+    static_assert(N > 0, "RingBuffer must hold at least one item");
 
 public:
-  struct Entry {
-    uint32_t id;
-    T item;
-  };
+    struct Entry {
+        uint32_t id;
+        T item;
+    };
 
-  bool push(const T& item) {
-    bool lost = false;
-    if (count_ == N) {
-      head_ = (head_ + 1) % N;
-      ++first_id_;
-      --count_;
-      ++dropped_;
-      lost = true;
-    }
-    items_[(head_ + count_) % N] = item;
-    ++count_;
+    bool push(const T& item) {
+        bool lost = false;
+        if (count_ == N) {
+            head_ = (head_ + 1) % N;
+            ++first_id_;
+            --count_;
+            ++dropped_;
+            lost = true;
+        }
+        items_[(head_ + count_) % N] = item;
+        ++count_;
 
-    return !lost;
-  }
-
-  [[nodiscard]] std::optional<Entry> front() const {
-    if (count_ == 0) {
-      return std::nullopt;
+        return !lost;
     }
 
-    return Entry{first_id_, items_[head_]};
-  }
+    [[nodiscard]] std::optional<Entry> front() const {
+        if (count_ == 0) {
+            return std::nullopt;
+        }
 
-  bool popFront(uint32_t id) {
-    if (count_ == 0 || id != first_id_) {
-      return false;
+        return Entry{first_id_, items_[head_]};
     }
-    head_ = (head_ + 1) % N;
-    ++first_id_;
-    --count_;
-    return true;
-  }
 
-  [[nodiscard]] size_t size() const { return count_; }
-  [[nodiscard]] bool empty() const { return count_ == 0; }
-  [[nodiscard]] uint32_t dropped() const { return dropped_; }
-  [[nodiscard]] static constexpr size_t capacity() { return N; }
+    bool popFront(uint32_t id) {
+        if (count_ == 0 || id != first_id_) {
+            return false;
+        }
+        head_ = (head_ + 1) % N;
+        ++first_id_;
+        --count_;
+        return true;
+    }
+
+    [[nodiscard]] size_t size() const { return count_; }
+    [[nodiscard]] bool empty() const { return count_ == 0; }
+    [[nodiscard]] uint32_t dropped() const { return dropped_; }
+    [[nodiscard]] static constexpr size_t capacity() { return N; }
 
 private:
-  std::array<T, N> items_{};
-  size_t head_ = 0;
-  size_t count_ = 0;
-  uint32_t first_id_ = 0;
-  uint32_t dropped_ = 0;
+    std::array<T, N> items_{};
+    size_t head_ = 0;
+    size_t count_ = 0;
+    uint32_t first_id_ = 0;
+    uint32_t dropped_ = 0;
 };
