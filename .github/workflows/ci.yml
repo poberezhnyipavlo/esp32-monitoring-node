@@ -50,7 +50,7 @@ jobs:
                   path: ~/.platformio
                   key: pio-native-${{ hashFiles('platformoi.ini') }}
             - run: pio pkg install -e native
-            - run: srcipts/tidy.sh
+            - run: scripts/tidy.sh
 
     build:
         runs-on: ubuntu-24.04
