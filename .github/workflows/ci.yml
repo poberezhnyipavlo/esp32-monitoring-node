@@ -1,0 +1,102 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    format:
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-python@v7
+              with:
+                  python-version: "3.12"
+                  cache: pip
+                  cache-dependency-path: requirements-dev.txt
+            - run: pip install -r requirements-dev.txt
+            - run: scripts/format.sh
+    test:
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-python@v7
+              with:
+                  python-version: "3.12"
+                  cache: "pip"
+                  cache-dependency-path: requirements-dev.txt
+            - run: pip install -r requirements-dev.txt
+            -   run: pio test -e native
+    tidy:
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-python@v7
+              with:
+                  python-version: "3.12"
+                  cache: pip
+                  cache-dependency-path: requirements-dev.txt
+            - run: pip install -r requirements-dev.txt
+            - uses: actions/cache@v6
+              with:
+                  path: ~/.platformio
+                  key: pio-native-${{ hashFiles('platformoi.ini') }}
+            - run: pio pkg install -e native
+            - run: srcipts/tidy.sh
+
+    build:
+        runs-on: ubuntu-24.04
+        steps:
+            -   uses: actions/checkout@v7
+            -   uses: actions/setup-python@v7
+                with:
+                    python-version: "3.12"
+                    cache: pip
+                    cache-dependency-path: requirements-dev.txt
+            -   run: pip install -r requirements-dev.txt
+            -   uses: actions/cache@v6
+                with:
+                    path: ~/.platformio
+                    key: pio-esp32-${{ hashFiles('platformio.ini') }}
+            # Build check only: placeholders from the example, this firmware is never flashed.
+            -   run: cp include/secrets.example.h include/secrets.h
+            -   run: pio run -e esp32dev
+            -   run: pio run -e wokwi
+            # Hand the Wokwi build over to the next job (every job starts on a fresh VM).
+            -   uses: actions/upload-artifact@v7
+                with:
+                    name: firmware-wokwi
+                    path: |
+                        .pio/build/wokwi/firmware.bin
+                        .pio/build/wokwi/firmware.elf
+                    retention-days: 7
+    wokwi:
+        needs: build
+        runs-on: ubuntu-24.04
+        env:
+            WOKWI_CLI_TOKEN: ${{ secrets.WOKWI_CLI_TOKEN }}
+        steps:
+            -   uses: actions/checkout@v7 # wokwi.toml, diagram.json, test.scenario.yaml
+            -   uses: actions/download-artifact@v8
+                with:
+                    name: firmware-wokwi
+                    path: .pio/build/wokwi
+            -   name: Install wokwi-cli (pinned)
+                if: env.WOKWI_CLI_TOKEN != ''
+                run: |
+                    curl -sSfL -o /usr/local/bin/wokwi-cli \
+                        https://github.com/wokwi/wokwi-cli/releases/download/v0.27.1/wokwi-cli-linuxstatic-x64
+                    chmod +x /usr/local/bin/wokwi-cli
+                    wokwi-cli --version
+            -   name: Wokwi scenario
+                if: env.WOKWI_CLI_TOKEN != ''
+                run: wokwi-cli --timeout 30000 --scenario test.scenario.yaml .
+
