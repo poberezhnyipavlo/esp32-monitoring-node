@@ -1,5 +1,7 @@
 #include "HysteresisSwitch.h"
 
+#include <cstdint>
+
 HysteresisSwitch::HysteresisSwitch(uint16_t off_below, uint16_t on_below)
     : off_below_(off_below), on_below_(on_below) {}
 

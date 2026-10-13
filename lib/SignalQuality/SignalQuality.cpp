@@ -1,5 +1,7 @@
 #include "SignalQuality.h"
 
+#include <cstdint>
+
 const char* signalQuality(int32_t rssi_dbm) {
     if (rssi_dbm >= 0) {
         return "invalid";

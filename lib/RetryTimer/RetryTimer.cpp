@@ -1,5 +1,7 @@
 #include "RetryTimer.h"
 
+#include <cstdint>
+
 RetryTimer::RetryTimer(uint32_t base_ms, uint32_t max_ms) : base_ms_(base_ms), max_ms_(max_ms) {}
 
 bool RetryTimer::due(uint32_t now_ms) const {

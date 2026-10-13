@@ -1,5 +1,7 @@
 #include "WifiKeeper.h"
 
+#include <cstdint>
+
 WifiKeeper::WifiKeeper(
     uint32_t connect_timeout_ms,
     uint32_t backoff_base_ms,
