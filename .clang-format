@@ -1,0 +1,11 @@
+BasedOnStyle: Google
+IndentWidth: 4
+AccessModifierOffset: -4
+ColumnLimit: 100
+# Arguments/parameters that do not fit: one per line, indented 4, closing bracket on its own line.
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: OnePerLine
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+ContinuationIndentWidth: 4
