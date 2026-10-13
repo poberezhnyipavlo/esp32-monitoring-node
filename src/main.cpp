@@ -94,7 +94,7 @@ public:
 private:
     void updateWifi(uint32_t now) {
         switch (keeper_.update(WiFi.status() == WL_CONNECTED, now)) {
-            case WifiAction::Connect:
+            case WifiAction::kConnect:
                 Serial.printf(
                     "[net] Connecting to %s (attempt %lu)...\n",
                     WIFI_SSID,
@@ -106,7 +106,7 @@ private:
                 beganOnce_ = true;
                 WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL);
                 break;
-            case WifiAction::Connected:
+            case WifiAction::kConnected:
                 Serial.printf(
                     "[net] Connected, IP %s, RSSI %d dBm (%s)\n",
                     WiFi.localIP().toString().c_str(),
@@ -114,13 +114,13 @@ private:
                     signalQuality(WiFi.RSSI())
                 );
                 break;
-            case WifiAction::Timeout:
+            case WifiAction::kTimeout:
                 Serial.printf(
                     "[net] Connect timeout, retry in %lu ms\n",
                     static_cast<unsigned long>(keeper_.backoffMs())
                 );
                 break;
-            case WifiAction::Lost:
+            case WifiAction::kLost:
                 Serial.printf(
                     "[net] Connection lost, retry in %lu ms\n",
                     static_cast<unsigned long>(keeper_.backoffMs())
@@ -130,7 +130,7 @@ private:
                     tcpUp_ = false;
                 }
                 break;
-            case WifiAction::None:
+            case WifiAction::kNone:
                 break;
         }
     }

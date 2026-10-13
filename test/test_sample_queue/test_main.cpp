@@ -18,12 +18,12 @@ TEST(SampleQueue, PushFrontPop) {
 }
 
 TEST(SampleQueue, ProducerConsumerKeepsOrderAndCounts) {
-    constexpr uint32_t k_total = 200000;
+    constexpr uint32_t kTotal = 200000;
     SampleQueue<64> q;
     std::atomic<bool> done{false};
 
     std::thread producer([&] {
-        for (uint32_t i = 0; i < k_total; ++i) {
+        for (uint32_t i = 0; i < kTotal; ++i) {
             q.push(Sample{"x", 0, i, 0});
         }
         done = true;
@@ -50,7 +50,7 @@ TEST(SampleQueue, ProducerConsumerKeepsOrderAndCounts) {
     producer.join();
 
     EXPECT_TRUE(ordered);
-    EXPECT_EQ(received + q.stats().dropped, k_total);
+    EXPECT_EQ(received + q.stats().dropped, kTotal);
 }
 
 int main(int argc, char** argv) {

@@ -5,11 +5,11 @@
 #include "HysteresisSwitch.h"
 
 namespace {
-constexpr uint16_t k_off_below = 2000;
-constexpr uint16_t k_on_above = 2500;
-constexpr uint16_t k_middle = 2250;
+constexpr uint16_t kOffBelow = 2000;
+constexpr uint16_t kOnAbove = 2500;
+constexpr uint16_t kMiddle = 2250;
 
-HysteresisSwitch makeSwitch() { return HysteresisSwitch(k_off_below, k_on_above); }
+HysteresisSwitch makeSwitch() { return HysteresisSwitch(kOffBelow, kOnAbove); }
 
 uint32_t feed(HysteresisSwitch& sw, std::initializer_list<uint16_t> values) {
     for (const uint16_t v : values) {
@@ -27,49 +27,49 @@ TEST(HysteresisSwitch, StartsOff) {
 
 TEST(HysteresisSwitch, TurnsOnOnlyAboveUpperThreshold) {
     HysteresisSwitch sw = makeSwitch();
-    EXPECT_EQ(sw.update(k_on_above), SwitchEvent::None);
-    EXPECT_EQ(sw.update(k_on_above + 1), SwitchEvent::TurnedOn);
+    EXPECT_EQ(sw.update(kOnAbove), SwitchEvent::kNone);
+    EXPECT_EQ(sw.update(kOnAbove + 1), SwitchEvent::kTurnedOn);
     EXPECT_TRUE(sw.isOn());
 }
 
 TEST(HysteresisSwitch, TurnsOffOnlyBelowLowerThreshold) {
     HysteresisSwitch sw = makeSwitch();
-    ASSERT_EQ(sw.update(4095), SwitchEvent::TurnedOn);
-    EXPECT_EQ(sw.update(k_off_below), SwitchEvent::None);
-    EXPECT_EQ(sw.update(k_off_below - 1), SwitchEvent::TurnedOff);
+    ASSERT_EQ(sw.update(4095), SwitchEvent::kTurnedOn);
+    EXPECT_EQ(sw.update(kOffBelow), SwitchEvent::kNone);
+    EXPECT_EQ(sw.update(kOffBelow - 1), SwitchEvent::kTurnedOff);
     EXPECT_FALSE(sw.isOn());
 }
 
 TEST(HysteresisSwitch, EventIsReportedOnce) {
     HysteresisSwitch sw = makeSwitch();
-    EXPECT_EQ(sw.update(3000), SwitchEvent::TurnedOn);
-    EXPECT_EQ(sw.update(3000), SwitchEvent::None);
-    EXPECT_EQ(sw.update(3500), SwitchEvent::None);
+    EXPECT_EQ(sw.update(3000), SwitchEvent::kTurnedOn);
+    EXPECT_EQ(sw.update(3000), SwitchEvent::kNone);
+    EXPECT_EQ(sw.update(3500), SwitchEvent::kNone);
     EXPECT_EQ(sw.changeCount(), 1U);
 }
 
 TEST(HysteresisSwitch, SameValueDependsOnHistory) {
-    HysteresisSwitch fromDark = makeSwitch();
-    ASSERT_EQ(fromDark.update(4095), SwitchEvent::TurnedOn);
-    EXPECT_EQ(fromDark.update(k_middle), SwitchEvent::None);
-    EXPECT_TRUE(fromDark.isOn());
+    HysteresisSwitch from_dark = makeSwitch();
+    ASSERT_EQ(from_dark.update(4095), SwitchEvent::kTurnedOn);
+    EXPECT_EQ(from_dark.update(kMiddle), SwitchEvent::kNone);
+    EXPECT_TRUE(from_dark.isOn());
 
-    HysteresisSwitch fromLight = makeSwitch();
-    EXPECT_EQ(fromLight.update(0), SwitchEvent::None);
-    EXPECT_EQ(fromLight.update(k_middle), SwitchEvent::None);
-    EXPECT_FALSE(fromLight.isOn());
+    HysteresisSwitch from_light = makeSwitch();
+    EXPECT_EQ(from_light.update(0), SwitchEvent::kNone);
+    EXPECT_EQ(from_light.update(kMiddle), SwitchEvent::kNone);
+    EXPECT_FALSE(from_light.isOn());
 }
 
 TEST(HysteresisSwitch, NoiseInsideBandDoesNotToggle) {
     HysteresisSwitch sw = makeSwitch();
-    ASSERT_EQ(sw.update(3000), SwitchEvent::TurnedOn);
+    ASSERT_EQ(sw.update(3000), SwitchEvent::kTurnedOn);
     const uint32_t changes = feed(sw, {2240, 2260, 2010, 2490, 2245, 2255, 2001, 2499});
     EXPECT_EQ(changes, 1U);
     EXPECT_TRUE(sw.isOn());
 }
 
 TEST(HysteresisSwitch, WithoutHysteresisNoiseToggles) {
-    HysteresisSwitch sw(k_middle, k_middle);
+    HysteresisSwitch sw(kMiddle, kMiddle);
     const uint32_t changes = feed(sw, {2249, 2251, 2249, 2251, 2249});
     EXPECT_EQ(changes, 4U);
 }

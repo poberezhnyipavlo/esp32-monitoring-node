@@ -10,15 +10,15 @@ SwitchEvent HysteresisSwitch::update(uint16_t value) {
         on_ = true;
         ++changes_;
 
-        return SwitchEvent::TurnedOn;
+        return SwitchEvent::kTurnedOn;
     }
 
     if (on_ && value < off_below_) {
         on_ = false;
         ++changes_;
 
-        return SwitchEvent::TurnedOff;
+        return SwitchEvent::kTurnedOff;
     }
 
-    return SwitchEvent::None;
+    return SwitchEvent::kNone;
 }

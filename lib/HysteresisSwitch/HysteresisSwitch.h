@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-enum class SwitchEvent : uint8_t { None, TurnedOn, TurnedOff };
+enum class SwitchEvent : uint8_t { kNone, kTurnedOn, kTurnedOff };
 
 class HysteresisSwitch {
 public:

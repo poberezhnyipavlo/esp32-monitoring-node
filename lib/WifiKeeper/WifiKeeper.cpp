@@ -13,7 +13,7 @@ WifiKeeper::WifiKeeper(
       backoff_ms_(backoff_base_ms) {}
 
 void WifiKeeper::startWaiting(uint32_t now_ms) {
-    state_ = State::Waiting;
+    state_ = State::kWaiting;
     since_ms_ = now_ms;
 }
 
@@ -23,44 +23,44 @@ void WifiKeeper::growBackoff() {
 
 WifiAction WifiKeeper::update(bool link_up, uint32_t now_ms) {
     switch (state_) {
-        case State::Start:
-            state_ = State::Connecting;
+        case State::kStart:
+            state_ = State::kConnecting;
             since_ms_ = now_ms;
             attempt_ = 1;
-            return WifiAction::Connect;
+            return WifiAction::kConnect;
 
-        case State::Connecting:
-        case State::Waiting:
+        case State::kConnecting:
+        case State::kWaiting:
             if (link_up) {
-                state_ = State::Connected;
+                state_ = State::kConnected;
                 attempt_ = 0;
                 backoff_ms_ = backoff_base_ms_;
-                return WifiAction::Connected;
+                return WifiAction::kConnected;
             }
-            if (state_ == State::Connecting) {
+            if (state_ == State::kConnecting) {
                 if (now_ms - since_ms_ < connect_timeout_ms_) {
-                    return WifiAction::None;
+                    return WifiAction::kNone;
                 }
                 startWaiting(now_ms);
-                return WifiAction::Timeout;
+                return WifiAction::kTimeout;
             }
             if (now_ms - since_ms_ < backoff_ms_) {
-                return WifiAction::None;
+                return WifiAction::kNone;
             }
             growBackoff();
-            state_ = State::Connecting;
+            state_ = State::kConnecting;
             since_ms_ = now_ms;
             ++attempt_;
-            return WifiAction::Connect;
+            return WifiAction::kConnect;
 
-        case State::Connected:
+        case State::kConnected:
             if (link_up) {
-                return WifiAction::None;
+                return WifiAction::kNone;
             }
             attempt_ = 0;
             backoff_ms_ = backoff_base_ms_;
             startWaiting(now_ms);
-            return WifiAction::Lost;
+            return WifiAction::kLost;
     }
-    return WifiAction::None;
+    return WifiAction::kNone;
 }
