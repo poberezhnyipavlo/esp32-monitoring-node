@@ -5,6 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+if [[ -z "${CLANG_TIDY:-}" && -x .venv/bin/clang-tidy ]]; then
+    CLANG_TIDY=.venv/bin/clang-tidy
+fi
 CLANG_TIDY="${CLANG_TIDY:-clang-tidy}"
 GTEST_INCLUDE=".pio/libdeps/native/googletest/googletest/include"
 if [[ ! -d "$GTEST_INCLUDE" ]]; then
