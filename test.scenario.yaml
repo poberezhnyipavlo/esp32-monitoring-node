@@ -2,10 +2,12 @@ name: FreeRTOS tasks (sampling keeps going while TCP to the gateway fails)
 version: 1
 author: Pavlo
 steps:
-  - wait-serial: '13-freertos-tasks'
-  - wait-serial: '[app] Ready'
-  - wait-serial: '[net] Connected, IP 10.'
-  - wait-serial: '[net] TCP: connecting to 10.13.37.1:9002 (attempt 1)...'
-  - wait-serial: '[app] sampled seq='
-  - wait-serial: '[app] sampled seq='
-  - wait-serial: '[app] sampled seq='
+    - wait-serial: '13-freertos-tasks'
+    - wait-serial: '[app] Ready'
+    - wait-serial: '[net] Connected, IP 10.'
+    - wait-serial: '[net] TCP: connecting to 10.13.37.1:9002 (attempt 1)...'
+    - wait-serial: '[app] sampled seq='
+    - wait-serial: '[app] sampled seq='
+    - wait-serial: '[net] TCP: connect failed after'
+    - wait-serial: '[net] TCP: connecting to 10.13.37.1:9002 (attempt 2)...'
+    - wait-serial: '[app] sampled seq='
