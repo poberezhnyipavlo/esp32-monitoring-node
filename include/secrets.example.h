@@ -1,6 +1,6 @@
 #pragma once
 
-constexpr char WIFI_SSID[] = "your-ssid";
-constexpr char WIFI_PASSWORD[] = "your-password";
+constexpr const char* kWifiSsid = "your-ssid";
+constexpr const char* kWifiPassword = "your-password";
 
-constexpr char MONITOR_HOST[] = "192.168.0.100";
+constexpr const char* kMonitorHost = "192.168.0.100";

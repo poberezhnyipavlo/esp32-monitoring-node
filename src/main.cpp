@@ -14,36 +14,46 @@
 #include "WifiKeeper.h"
 
 #if defined(WOKWI_WIFI)
-constexpr char WIFI_SSID[] = "Wokwi-GUEST";
-constexpr char WIFI_PASSWORD[] = "";
-constexpr int32_t WIFI_CHANNEL = 6;
-constexpr char MONITOR_HOST[] = "10.13.37.1";
+constexpr const char* kWifiSsid = "Wokwi-GUEST";
+constexpr const char* kWifiPassword = "";
+constexpr int32_t kWifiChannel = 6;
+constexpr const char* kMonitorHost = "10.13.37.1";
 #elif __has_include("secrets.h")
 #include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MONITOR_HOST
-constexpr int32_t WIFI_CHANNEL = 0;
+constexpr int32_t kWifiChannel = 0;
 #else
 #error "No include/secrets.h: copy include/secrets.example.h to include/secrets.h and fill it in"
 #endif
 
 namespace {
-constexpr uint32_t SAMPLE_PERIOD_MS = 2000;
-constexpr uint32_t MS_PER_SECOND = 1000;
-constexpr size_t QUEUE_CAPACITY = 1000;
+constexpr uint32_t kMsPerSecond = 1000;
 
-constexpr uint16_t MONITOR_PORT = 9002;
-constexpr int32_t TCP_CONNECT_TIMEOUT_MS = 3000;
-constexpr uint32_t TCP_RETRY_BASE_MS = 1000;
-constexpr uint32_t TCP_RETRY_MAX_MS = 30000;
-constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
-constexpr uint32_t WIFI_BACKOFF_BASE_MS = 1000;
-constexpr uint32_t WIFI_BACKOFF_MAX_MS = 30000;
+namespace sampling {
+constexpr uint32_t kPeriodMs = 2000;
+constexpr size_t kQueueCapacity = 1000;
+}  // namespace sampling
 
-constexpr uint32_t NET_STACK_BYTES = 8192;
-constexpr UBaseType_t NET_PRIORITY = 1;
-constexpr UBaseType_t NET_CORE = 0;
-constexpr uint32_t NET_IDLE_MS = 20;
+namespace tcp {
+constexpr int32_t kConnectTimeoutMs = 3000;
+constexpr uint32_t kRetryBaseMs = 1000;
+constexpr uint32_t kRetryMaxMs = 30000;
+constexpr uint16_t kPort = 9002;
+}  // namespace tcp
 
-SampleQueue<QUEUE_CAPACITY> queue;
+namespace wifi {
+constexpr uint32_t kConnectTimeoutMs = 15000;
+constexpr uint32_t kRetryBaseMs = 1000;
+constexpr uint32_t kRetryMaxMs = 30000;
+}  // namespace wifi
+
+namespace net_task {
+constexpr uint32_t kStackBytes = 8192;
+constexpr UBaseType_t kPriority = 1;
+constexpr BaseType_t kCore = 0;
+constexpr uint32_t kIdleMs = 20;
+}  // namespace net_task
+
+SampleQueue<sampling::kQueueCapacity> queue;
 std::atomic<int32_t> lastRssi{0};
 TaskHandle_t netTask = nullptr;
 
@@ -63,8 +73,8 @@ public:
             "[net] dev=%s boot=%08lx, monitor %s:%u\n",
             dev_.data(),
             static_cast<unsigned long>(origin_.boot),
-            MONITOR_HOST,
-            static_cast<unsigned>(MONITOR_PORT)
+            kMonitorHost,
+            static_cast<unsigned>(tcp::kPort)
         );
     }
 
@@ -97,14 +107,14 @@ private:
             case WifiAction::kConnect:
                 Serial.printf(
                     "[net] Connecting to %s (attempt %lu)...\n",
-                    WIFI_SSID,
+                    kWifiSsid,
                     static_cast<unsigned long>(keeper_.attempt())
                 );
                 if (beganOnce_) {
                     WiFi.disconnect();
                 }
                 beganOnce_ = true;
-                WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL);
+                WiFi.begin(kWifiSsid, kWifiPassword, kWifiChannel);
                 break;
             case WifiAction::kConnected:
                 Serial.printf(
@@ -137,8 +147,8 @@ private:
 
     void resolveMonitor() {
         IPAddress ip;
-        if (WiFi.hostByName(MONITOR_HOST, ip) != 1) {
-            Serial.printf("[net] Cannot resolve %s, will retry\n", MONITOR_HOST);
+        if (WiFi.hostByName(kMonitorHost, ip) != 1) {
+            Serial.printf("[net] Cannot resolve %s, will retry\n", kMonitorHost);
             return;
         }
         monitorIp_ = ip;
@@ -159,11 +169,11 @@ private:
         Serial.printf(
             "[net] TCP: connecting to %s:%u (attempt %lu)...\n",
             monitorIp_->toString().c_str(),
-            static_cast<unsigned>(MONITOR_PORT),
+            static_cast<unsigned>(tcp::kPort),
             static_cast<unsigned long>(tcpRetry_.failures() + 1)
         );
         const uint32_t started = millis();
-        const bool ok = client_.connect(*monitorIp_, MONITOR_PORT, TCP_CONNECT_TIMEOUT_MS) == 1;
+        const bool ok = client_.connect(*monitorIp_, tcp::kPort, tcp::kConnectTimeoutMs) == 1;
         const uint32_t took = millis() - started;
         if (!ok) {
             tcpRetry_.failed(millis());
@@ -222,11 +232,11 @@ private:
         }
     }
 
-    WifiKeeper keeper_{WIFI_CONNECT_TIMEOUT_MS, WIFI_BACKOFF_BASE_MS, WIFI_BACKOFF_MAX_MS};
+    WifiKeeper keeper_{wifi::kConnectTimeoutMs, wifi::kRetryBaseMs, wifi::kRetryMaxMs};
     bool beganOnce_ = false;
     WiFiClient client_;
     std::optional<IPAddress> monitorIp_;
-    RetryTimer tcpRetry_{TCP_RETRY_BASE_MS, TCP_RETRY_MAX_MS};
+    RetryTimer tcpRetry_{tcp::kRetryBaseMs, tcp::kRetryMaxMs};
     bool tcpUp_ = false;
     std::array<char, metric::k_dev_len + 1> dev_{};
     metric::Origin origin_{};
@@ -237,7 +247,7 @@ void netTaskMain(void* /*arg*/) {
     uplink.begin();
     for (;;) {
         uplink.loopOnce();
-        vTaskDelay(pdMS_TO_TICKS(NET_IDLE_MS));
+        vTaskDelay(pdMS_TO_TICKS(net_task::kIdleMs));
     }
 }
 }  // namespace
@@ -251,11 +261,11 @@ void setup() {
     const BaseType_t created = xTaskCreatePinnedToCore(
         netTaskMain,
         "net",
-        NET_STACK_BYTES,
+        net_task::kStackBytes,
         nullptr,
-        NET_PRIORITY,
+        net_task::kPriority,
         &netTask,
-        NET_CORE
+        net_task::kCore
     );
 
     if (created != pdPASS) {
@@ -263,8 +273,8 @@ void setup() {
     }
     Serial.printf(
         "[app] Ready: sample every %lu ms, queue capacity %u\n",
-        static_cast<unsigned long>(SAMPLE_PERIOD_MS),
-        static_cast<unsigned>(QUEUE_CAPACITY)
+        static_cast<unsigned long>(sampling::kPeriodMs),
+        static_cast<unsigned>(sampling::kQueueCapacity)
     );
 }
 
@@ -273,14 +283,14 @@ void loop() {
     static uint32_t seq = 0;
     static uint32_t lastSampleMs = 0;
 
-    vTaskDelayUntil(&wake, pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+    vTaskDelayUntil(&wake, pdMS_TO_TICKS(sampling::kPeriodMs));
 
     const uint32_t now = millis();
     const uint32_t interval = lastSampleMs == 0 ? 0 : now - lastSampleMs;
     lastSampleMs = now;
 
     const uint32_t first = seq;
-    queue.push(Sample{"uptime_s", static_cast<double>(now / MS_PER_SECOND), seq++, now});
+    queue.push(Sample{"uptime_s", static_cast<double>(now / kMsPerSecond), seq++, now});
     queue.push(Sample{"free_heap_bytes", static_cast<double>(ESP.getFreeHeap()), seq++, now});
     const int32_t rssi = lastRssi;
     if (rssi != 0) {
@@ -295,7 +305,7 @@ void loop() {
         static_cast<unsigned long>(seq - 1),
         static_cast<unsigned long>(interval),
         static_cast<unsigned>(stats.size),
-        static_cast<unsigned>(QUEUE_CAPACITY),
+        static_cast<unsigned>(sampling::kQueueCapacity),
         static_cast<unsigned long>(stats.dropped),
         netTask ? static_cast<unsigned>(uxTaskGetStackHighWaterMark(netTask)) : 0U
     );
