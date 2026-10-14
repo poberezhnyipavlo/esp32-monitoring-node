@@ -10,7 +10,9 @@ Checks: >
     readability-*,
     -modernize-use-trailing-return-type,
     -readability-identifier-length,
-    -bugprone-easily-swappable-parameters
+    -bugprone-easily-swappable-parameters,
+    -bugprone-easily-swappable-parameters,
+    -cppcoreguidelines-avoid-const-or-ref-data-members
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/lib/.*'
 CheckOptions:

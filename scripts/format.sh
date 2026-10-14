@@ -5,6 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+if [[ -z "${CLANG_FORMAT:-}" && -x .venv/bin/clang-format ]]; then
+    CLANG_FORMAT=.venv/bin/clang-format
+fi
 CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
 FILES=()
 while IFS= read -r file; do FILES+=("$file"); done < <(
