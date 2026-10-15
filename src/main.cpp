@@ -11,10 +11,11 @@
 #include "RetryTimer.h"
 #include "SampleQueue.h"
 #include "WifiKeeper.h"
+#include "drivers/DhtSensor.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
 
-#if defined(WOKWI_WIFI)
+#ifdef WOKWI_WIFI
 constexpr const char* kWifiSsid = "Wokwi-GUEST";
 constexpr const char* kWifiPassword = "";
 constexpr int32_t kWifiChannel = 6;
@@ -24,6 +25,10 @@ constexpr const char* kMonitorHost = "10.13.37.1";
 constexpr int32_t kWifiChannel = 0;
 #else
 #error "No include/secrets.h: copy include/secrets.example.h to include/secrets.h and fill it in"
+#endif
+
+#ifndef  DHT_SENSOR_TYPE
+#error "DHT_SENSOR_TYPE is not set: add -D DHT_SENSOR_TYPE=DHT11 (or DHT22) to build_flags"
 #endif
 
 namespace {
@@ -54,9 +59,14 @@ constexpr BaseType_t kCore = 0;
 constexpr uint32_t kIdleMs = 20;
 }  // namespace net_task
 
+namespace pins {
+constexpr uint8_t kDht = 4;
+}
+
 SampleQueue<sampling::kQueueCapacity> queue;
 std::atomic<int32_t> lastRssi{0};
 TaskHandle_t netTask = nullptr;
+DhtSensor dht{pins::kDht, DHT_SENSOR_TYPE};
 
 class Uplink {
 public:
@@ -137,7 +147,9 @@ void setup() {
     Serial.begin(115200);
     delay(500);
     Serial.println();
-    Serial.println("13-freertos-tasks");
+    Serial.println("esp32-monitoring-node");
+
+    dht.begin();
 
     const BaseType_t created = xTaskCreatePinnedToCore(
         netTaskMain,
@@ -162,28 +174,32 @@ void setup() {
 void loop() {
     static TickType_t wake = xTaskGetTickCount();
     static uint32_t seq = 0;
-    static uint32_t lastSampleMs = 0;
+    static uint32_t last_sample_ms = 0;
 
     vTaskDelayUntil(&wake, pdMS_TO_TICKS(sampling::kPeriodMs));
 
     const uint32_t now = millis();
-    const uint32_t interval = lastSampleMs == 0 ? 0 : now - lastSampleMs;
-    lastSampleMs = now;
+    const uint32_t interval = last_sample_ms == 0 ? 0 : now - last_sample_ms;
+    last_sample_ms = now;
 
     const uint32_t first = seq;
-    queue.push(Sample{"uptime_s", static_cast<double>(now / kMsPerSecond), seq++, now});
-    queue.push(Sample{"free_heap_bytes", static_cast<double>(ESP.getFreeHeap()), seq++, now});
-    const int32_t rssi = lastRssi;
-    if (rssi != 0) {
-        queue.push(Sample{"rssi_dbm", static_cast<double>(rssi), seq++, now});
+    const std::optional<ClimateReading> reading = dht.read();
+    if (!reading) {
+        Serial.println("[app] dht read failed");
+        return;
     }
+
+    queue.push(Sample{"temperature_c", reading->temperature_c, seq++, now});
+    queue.push(Sample{"humidity_pct", reading->humidity_pct, seq++, now});
 
     const auto stats = queue.stats();
     Serial.printf(
-        "[app] sampled seq=%lu..%lu interval=%lu ms queue=%u/%u dropped=%lu "
+        "[app] sampled seq=%lu..%lu T=%.1f H=%.1f interval=%lu ms queue=%u/%u dropped=%lu "
         "net_stack_free=%u\n",
         static_cast<unsigned long>(first),
         static_cast<unsigned long>(seq - 1),
+        reading->temperature_c,
+        reading->humidity_pct,
         static_cast<unsigned long>(interval),
         static_cast<unsigned>(stats.size),
         static_cast<unsigned>(sampling::kQueueCapacity),
