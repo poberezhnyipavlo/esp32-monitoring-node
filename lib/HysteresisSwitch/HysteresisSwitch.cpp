@@ -1,11 +1,9 @@
 #include "HysteresisSwitch.h"
 
-#include <cstdint>
-
-HysteresisSwitch::HysteresisSwitch(uint16_t off_below, uint16_t on_below)
+HysteresisSwitch::HysteresisSwitch(float off_below, float on_below)
     : off_below_(off_below), on_below_(on_below) {}
 
-SwitchEvent HysteresisSwitch::update(uint16_t value) {
+SwitchEvent HysteresisSwitch::update(float value) {
     if (!on_ && value > on_below_) {
         on_ = true;
         ++changes_;
