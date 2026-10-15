@@ -15,5 +15,5 @@ steps:
     - wait-serial: '[app] dht read failed'
     - wait-serial: '[app] dht read failed'
     - set-control: { part-id: btn_dht, control: pressed, value: 0 }
-    - wait-serial: 'T=24.0 H=40.0 '
+    - wait-serial: 'T=24.0 H=40.0 alert=normal '
 

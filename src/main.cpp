@@ -12,6 +12,7 @@
 #include "QueueSender.h"
 #include "RetryTimer.h"
 #include "SampleQueue.h"
+#include "TemperatureAlert.h"
 #include "WifiKeeper.h"
 #include "drivers/DhtSensor.h"
 #include "net/TcpLink.h"
@@ -65,9 +66,15 @@ namespace pins {
 constexpr uint8_t kDht = 4;
 }
 
+namespace temperature {
+constexpr TemperatureLimits klLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.5F};
+static_assert(isValid(klLimits), "temperature limits: bands overlap or no hysteresis");
+}  // namespace temperature
+
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
-EventBus<1> bus{{&queue_listener}};
+TemperatureAlert temperature_alert{temperature::klLimits};
+EventBus<2> bus{{&queue_listener, &temperature_alert}};
 
 std::atomic<int32_t> lastRssi{0};
 TaskHandle_t netTask = nullptr;
@@ -192,18 +199,21 @@ void loop() {
         return;
     }
 
-    bus.publish(ClimateMeasured{
-        .temperature_c =  reading->temperature_c,
-        .humidity_pct = reading->humidity_pct,
-        .sampled_at_ms = now,
-    });
+    bus.publish(
+        ClimateMeasured{
+            .temperature_c = reading->temperature_c,
+            .humidity_pct = reading->humidity_pct,
+            .sampled_at_ms = now,
+        }
+    );
 
     const auto stats = queue.stats();
     Serial.printf(
-        "[app] sampled T=%.1f H=%.1f interval=%lu ms queue=%u/%u dropped=%lu "
+        "[app] sampled T=%.1f H=%.1f alert=%s interval=%lu ms queue=%u/%u dropped=%lu "
         "net_stack_free=%u\n",
         reading->temperature_c,
         reading->humidity_pct,
+        toString(temperature_alert.level()),
         static_cast<unsigned long>(interval),
         static_cast<unsigned>(stats.size),
         static_cast<unsigned>(sampling::kQueueCapacity),

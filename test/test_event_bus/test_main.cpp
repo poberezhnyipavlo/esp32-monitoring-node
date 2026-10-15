@@ -18,7 +18,7 @@ public:
 
 const ClimateMeasured kEvent{24.5F, 40.0F, 2000};
 
-}
+}  // namespace
 
 TEST(EventBus, DeliversEventToEveryListenerInOrder) {
     MockListener first;
