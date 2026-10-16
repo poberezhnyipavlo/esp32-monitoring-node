@@ -12,6 +12,7 @@
 #include "QueueSender.h"
 #include "RetryTimer.h"
 #include "SampleQueue.h"
+#include "SnapshotStore.h"
 #include "TemperatureAlert.h"
 #include "WifiKeeper.h"
 #include "drivers/DhtSensor.h"
@@ -71,14 +72,27 @@ constexpr TemperatureLimits klLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis
 static_assert(isValid(klLimits), "temperature limits: bands overlap or no hysteresis");
 }  // namespace temperature
 
+namespace ui_task {
+constexpr uint32_t kStackBytes = 4096;
+constexpr UBaseType_t kPriority = 1;
+constexpr BaseType_t kCore = 1;
+constexpr uint32_t kTicksMs = 250;
+constexpr uint32_t kSensorStaleMs = 10000;
+}  // namespace ui_task
+
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
 TemperatureAlert temperature_alert{temperature::klLimits};
 EventBus<2> bus{{&queue_listener, &temperature_alert}};
 
-std::atomic<int32_t> lastRssi{0};
+std::atomic<int32_t> last_rssi{0};
 TaskHandle_t netTask = nullptr;
 DhtSensor dht{pins::kDht, DHT_SENSOR_TYPE};
+
+SnapshotStore snapshot_store;
+std::atomic<bool> wifi_up{false};
+std::atomic<bool> tcp_up{false};
+TaskHandle_t ui_task_handle = nullptr;
 
 class Uplink {
 public:
@@ -100,13 +114,16 @@ public:
     void loopOnce() {
         const uint32_t now = millis();
         wifi_.update(now);
+        wifi_up = wifi_.isConnected();
         if (!wifi_.isConnected()) {
             tcp_.close();
-            lastRssi = 0;
+            tcp_up = false;
+            last_rssi = 0;
             return;
         }
-        lastRssi = wifi_.rssi();
+        last_rssi = wifi_.rssi();
         tcp_.update(now);
+        tcp_up = tcp_.isOpen();
         if (!tcp_.isOpen()) {
             return;
         }
@@ -153,6 +170,31 @@ void netTaskMain(void* /*arg*/) {
         vTaskDelay(pdMS_TO_TICKS(net_task::kIdleMs));
     }
 }
+void uiTaskMain(void* /*arg*/) {
+    bool was_stale = false;
+    for (;;) {
+        const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
+        const Snapshot snapshot = snapshot_store.read();
+        const uint32_t now = millis();
+
+        const bool stale = now - snapshot.last_ok_ms > ui_task::kSensorStaleMs;
+        const char* sensor = stale ? "stale" : (snapshot.has_reading ? "ok" : "waiting");
+
+        if (notified > 0 || stale != was_stale) {
+            Serial.printf(
+                "[ui] sensor=%s T=%.1f H=%.1f alert=%s wifi=%d tcp=%d stack_free=%u\n",
+                sensor,
+                snapshot.temperature_c,
+                snapshot.humidity_pct,
+                toString(snapshot.level),
+                wifi_up.load() ? 1 : 0,
+                tcp_up.load() ? 1 : 0,
+                static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr))
+            );
+        }
+        was_stale = stale;
+    }
+}
 }  // namespace
 
 void setup() {
@@ -176,6 +218,21 @@ void setup() {
     if (created != pdPASS) {
         Serial.println("[app] cannot create net task");
     }
+
+    const BaseType_t ui_created = xTaskCreatePinnedToCore(
+        uiTaskMain,
+        "ui",
+        ui_task::kStackBytes,
+        nullptr,
+        ui_task::kPriority,
+        &ui_task_handle,
+        ui_task::kCore
+    );
+
+    if (ui_created != pdPASS) {
+        Serial.println("[app] cannot create ui task");
+    }
+
     Serial.printf(
         "[app] Ready: sample every %lu ms, queue capacity %u\n",
         static_cast<unsigned long>(sampling::kPeriodMs),
@@ -206,6 +263,15 @@ void loop() {
             .sampled_at_ms = now,
         }
     );
+
+    snapshot_store.write(Snapshot{
+        .has_reading = true,
+        .temperature_c = reading->temperature_c,
+        .humidity_pct = reading->humidity_pct,
+        .level = temperature_alert.level(),
+        .last_ok_ms = now,
+    });
+    xTaskNotifyGive(ui_task_handle);
 
     const auto stats = queue.stats();
     Serial.printf(

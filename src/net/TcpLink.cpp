@@ -76,5 +76,7 @@ bool TcpLink::send(const char* data, std::size_t len) {
         return false;
     }
 
+    retry_.succeeded();
+
     return true;
 }

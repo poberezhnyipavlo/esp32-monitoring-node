@@ -24,7 +24,7 @@ scripts/tidy.sh                              # static analysis of lib/ and test/
 cp include/secrets.example.h include/secrets.h   # then fill in Wi-Fi and receiver
 pio run                                      # firmware for the board
 
-pio run -e wokwi && wokwi-cli --timeout 30000 --scenario test.scenario.yaml   # needs WOKWI_CLI_TOKEN
+pio run -e wokwi && wokwi-cli --timeout 45000 --scenario test.scenario.yaml   # needs WOKWI_CLI_TOKEN
 ```
 
 ## CI

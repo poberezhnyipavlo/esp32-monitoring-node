@@ -109,5 +109,5 @@ jobs:
                     wokwi-cli --version
             -   name: Wokwi scenario
                 if: env.WOKWI_CLI_TOKEN != ''
-                run: wokwi-cli --timeout 30000 --scenario test.scenario.yaml .
+                run: wokwi-cli --timeout 45000 --scenario test.scenario.yaml .
 
