@@ -15,6 +15,7 @@
 #include "SnapshotStore.h"
 #include "TemperatureAlert.h"
 #include "WifiKeeper.h"
+#include "StatusIndicator.h"
 #include "drivers/DhtSensor.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
@@ -68,31 +69,37 @@ constexpr uint8_t kDht = 4;
 }
 
 namespace temperature {
-constexpr TemperatureLimits klLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.5F};
-static_assert(isValid(klLimits), "temperature limits: bands overlap or no hysteresis");
+constexpr TemperatureLimits kLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.5F};
+static_assert(isValid(kLimits), "temperature limits: bands overlap or no hysteresis");
 }  // namespace temperature
 
 namespace ui_task {
-constexpr uint32_t kStackBytes = 4096;
+constexpr uint32_t kStackBytes = 2032;
 constexpr UBaseType_t kPriority = 1;
 constexpr BaseType_t kCore = 1;
 constexpr uint32_t kTicksMs = 250;
 constexpr uint32_t kSensorStaleMs = 10000;
 }  // namespace ui_task
 
+namespace status_led {
+constexpr StatusConfig kConfig{.sensor_stale_ms = 10000, .blink_period_ms = 1000};
+}
+
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
-TemperatureAlert temperature_alert{temperature::klLimits};
+TemperatureAlert temperature_alert{temperature::kLimits};
 EventBus<2> bus{{&queue_listener, &temperature_alert}};
 
 std::atomic<int32_t> last_rssi{0};
-TaskHandle_t netTask = nullptr;
+TaskHandle_t net_task_handle = nullptr;
 DhtSensor dht{pins::kDht, DHT_SENSOR_TYPE};
 
 SnapshotStore snapshot_store;
 std::atomic<bool> wifi_up{false};
 std::atomic<bool> tcp_up{false};
 TaskHandle_t ui_task_handle = nullptr;
+
+const StatusIndicator status_indicator{status_led::kConfig};
 
 class Uplink {
 public:
@@ -170,29 +177,33 @@ void netTaskMain(void* /*arg*/) {
         vTaskDelay(pdMS_TO_TICKS(net_task::kIdleMs));
     }
 }
+
 void uiTaskMain(void* /*arg*/) {
-    bool was_stale = false;
+    Status last_logged{.color=StatusColor::kOff, .blinking=false};
     for (;;) {
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
         const Snapshot snapshot = snapshot_store.read();
-        const uint32_t now = millis();
+        const bool wifi = wifi_up.load();
+        const bool tcp = tcp_up.load();
+        const Status status = status_indicator.status(snapshot, wifi, tcp, millis());
 
-        const bool stale = now - snapshot.last_ok_ms > ui_task::kSensorStaleMs;
-        const char* sensor = stale ? "stale" : (snapshot.has_reading ? "ok" : "waiting");
+        const bool changed =
+            status.color != last_logged.color || status.blinking != last_logged.blinking;
 
-        if (notified > 0 || stale != was_stale) {
+        if (notified > 0 || changed) {
             Serial.printf(
-                "[ui] sensor=%s T=%.1f H=%.1f alert=%s wifi=%d tcp=%d stack_free=%u\n",
-                sensor,
+                "[ui] led=%s%s T=%.1f H=%.1f alert=%s wifi=%d tcp=%d stack_free=%u\n",
+                toString(status.color),
+                status.blinking ? " blink" : "",
                 snapshot.temperature_c,
                 snapshot.humidity_pct,
                 toString(snapshot.level),
-                wifi_up.load() ? 1 : 0,
-                tcp_up.load() ? 1 : 0,
+                wifi ? 1 : 0,
+                tcp ? 1 : 0,
                 static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr))
             );
         }
-        was_stale = stale;
+        last_logged = status;
     }
 }
 }  // namespace
@@ -211,7 +222,7 @@ void setup() {
         net_task::kStackBytes,
         nullptr,
         net_task::kPriority,
-        &netTask,
+        &net_task_handle,
         net_task::kCore
     );
 
@@ -284,6 +295,6 @@ void loop() {
         static_cast<unsigned>(stats.size),
         static_cast<unsigned>(sampling::kQueueCapacity),
         static_cast<unsigned long>(stats.dropped),
-        netTask ? static_cast<unsigned>(uxTaskGetStackHighWaterMark(netTask)) : 0U
+        net_task_handle ? static_cast<unsigned>(uxTaskGetStackHighWaterMark(net_task_handle)) : 0U
     );
 }

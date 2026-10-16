@@ -4,7 +4,7 @@ author: Pavlo
 steps:
     - wait-serial: 'esp32-monitoring-node'
     - wait-serial: '[app] Ready'
-    - wait-serial: '[net] Connected, IP 10.'
+    - wait-serial: '[ui] led=blue '
     - wait-serial: '[net] TCP: connecting to 10.13.37.1:9002 (attempt 1)...'
     - wait-serial: '[app] sampled '
     - wait-serial: '[app] sampled '
@@ -13,8 +13,8 @@ steps:
     - wait-serial: '[app] sampled '
     - set-control: { part-id: btn_dht, control: pressed, value: 1 }
     - wait-serial: '[app] dht read failed'
-    - wait-serial: '[ui] sensor=stale '
+    - wait-serial: '[ui] led=red '
     - set-control: { part-id: btn_dht, control: pressed, value: 0 }
     - wait-serial: 'T=24.0 H=40.0 alert=normal '
-    - wait-serial: '[ui] sensor=ok '
+    - wait-serial: '[ui] led=yellow '
 

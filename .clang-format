@@ -9,3 +9,4 @@ BinPackParameters: OnePerLine
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 ContinuationIndentWidth: 4
+PenaltyReturnTypeOnItsOwnLine: 1000
