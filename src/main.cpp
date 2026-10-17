@@ -74,7 +74,7 @@ static_assert(isValid(kLimits), "temperature limits: bands overlap or no hystere
 }  // namespace temperature
 
 namespace ui_task {
-constexpr uint32_t kStackBytes = 2032;
+constexpr uint32_t kStackBytes = 4096;
 constexpr UBaseType_t kPriority = 1;
 constexpr BaseType_t kCore = 1;
 constexpr uint32_t kTicksMs = 250;

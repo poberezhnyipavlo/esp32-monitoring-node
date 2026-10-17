@@ -28,6 +28,7 @@ void TcpLink::update(uint32_t now_ms) {
 
     if (open_ && !client_.connected()) {
         drop("connection lost");
+        return;
     }
 
     if (!open_ && ip_ && retry_.due(now_ms)) {
