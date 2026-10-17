@@ -82,7 +82,7 @@ constexpr uint32_t kSensorStaleMs = 10000;
 }  // namespace ui_task
 
 namespace status_led {
-constexpr StatusConfig kConfig{.sensor_stale_ms = 10000, .blink_period_ms = 1000};
+constexpr StatusConfig kConfig{.sensor_stale_ms = ui_task::kSensorStaleMs, .blink_period_ms = kMsPerSecond};
 }
 
 SampleQueue<sampling::kQueueCapacity> queue;
