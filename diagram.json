@@ -3,77 +3,49 @@
     "author": "Pavlo",
     "editor": "wokwi",
     "parts": [
-        {
-            "type": "board-esp32-devkit-c-v4",
-            "id": "esp",
-            "top": 0,
-            "left": 0,
-            "attrs": {}
-        },
+        { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
         {
             "type": "wokwi-dht22",
             "id": "dht1",
             "top": -110,
             "left": -130,
-            "attrs": {
-                "temperature": "24",
-                "humidity": "40"
-            }
+            "attrs": { "temperature": "24", "humidity": "40" }
         },
         {
             "type": "wokwi-pushbutton",
             "id": "btn_dht",
             "top": -110,
             "left": -230,
-            "attrs": {
-                "color": "red",
-                "bounce": "0"
-            }
-        }
+            "attrs": { "color": "red", "bounce": "0" }
+        },
+        {
+            "type": "wokwi-rgb-led",
+            "id": "rgb1",
+            "top": -120,
+            "left": 180,
+            "attrs": { "common": "cathode" }
+        },
+        { "type": "wokwi-resistor", "id": "r_red", "top": -40, "left": 150, "rotate": 90, "attrs": { "value": "220" } },
+        { "type": "wokwi-resistor", "id": "r_green", "top": -40, "left": 180, "rotate": 90, "attrs": { "value": "220" } },
+        { "type": "wokwi-resistor", "id": "r_blue", "top": -40, "left": 210, "rotate": 90, "attrs": { "value": "220" } }
     ],
     "connections": [
-        [
-            "esp:TX",
-            "$serialMonitor:RX",
-            "",
-            []
-        ],
-        [
-            "esp:RX",
-            "$serialMonitor:TX",
-            "",
-            []
-        ],
-        [
-            "dht1:VCC",
-            "esp:3V3",
-            "red",
-            []
-        ],
-        [
-            "dht1:GND",
-            "esp:GND.1",
-            "black",
-            []
-        ],
-        [
-            "dht1:SDA",
-            "esp:4",
-            "orange",
-            []
-        ],
-        [
-            "btn_dht:1.l",
-            "esp:4",
-            "orange",
-            []
-        ],
-        [
-            "btn_dht:2.l",
-            "esp:GND.1",
-            "black",
-            []
-        ]
+        [ "esp:TX", "$serialMonitor:RX", "", [] ],
+        [ "esp:RX", "$serialMonitor:TX", "", [] ],
+
+        [ "dht1:VCC", "esp:3V3", "red", [] ],
+        [ "dht1:GND", "esp:GND.1", "black", [] ],
+        [ "dht1:SDA", "esp:4", "orange", [] ],
+        [ "btn_dht:1.l", "esp:4", "orange", [] ],
+        [ "btn_dht:2.l", "esp:GND.1", "black", [] ],
+
+        [ "esp:18", "r_red:1", "red", [] ],
+        [ "r_red:2", "rgb1:R", "red", [] ],
+        [ "esp:19", "r_green:1", "green", [] ],
+        [ "r_green:2", "rgb1:G", "green", [] ],
+        [ "esp:23", "r_blue:1", "blue", [] ],
+        [ "r_blue:2", "rgb1:B", "blue", [] ],
+        [ "rgb1:COM", "esp:GND.2", "black", [] ]
     ],
     "dependencies": {}
 }

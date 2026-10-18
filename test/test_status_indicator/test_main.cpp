@@ -107,6 +107,27 @@ TEST(StatusIndicator, SteadyColourNeverGoesOff) {
     }
 }
 
+namespace {
+
+void expectChannels(StatusColor color, bool red, bool green, bool blue) {
+    const RgbChannels rgb = toRgb(color);
+    EXPECT_EQ(rgb.red, red) << toString(color);
+    EXPECT_EQ(rgb.green, green) << toString(color);
+    EXPECT_EQ(rgb.blue, blue) << toString(color);
+}
+
+}  // namespace
+
+TEST(ToRgb, OffLightsNothing) { expectChannels(StatusColor::kOff, false, false, false); }
+
+TEST(ToRgb, PrimaryColoursLightOneChannel) {
+    expectChannels(StatusColor::kRed, true, false, false);
+    expectChannels(StatusColor::kGreen, false, true, false);
+    expectChannels(StatusColor::kBlue, false, false, true);
+}
+
+TEST(ToRgb, YellowIsRedPlusGreen) { expectChannels(StatusColor::kYellow, true, true, false); }
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -5,6 +5,9 @@ steps:
     - wait-serial: 'esp32-monitoring-node'
     - wait-serial: '[app] Ready'
     - wait-serial: '[ui] led=blue '
+    - expect-pin: { part-id: esp, name: '18', value: 0 }
+    - expect-pin: { part-id: esp, name: '19', value: 0 }
+    - expect-pin: { part-id: esp, name: '23', value: 1 }
     - wait-serial: '[net] TCP: connecting to 10.13.37.1:9002 (attempt 1)...'
     - wait-serial: '[app] sampled '
     - wait-serial: '[app] sampled '
@@ -14,7 +17,12 @@ steps:
     - set-control: { part-id: btn_dht, control: pressed, value: 1 }
     - wait-serial: '[app] dht read failed'
     - wait-serial: '[ui] led=red '
+    - expect-pin: { part-id: esp, name: '18', value: 1 }
+    - expect-pin: { part-id: esp, name: '19', value: 0 }
+    - expect-pin: { part-id: esp, name: '23', value: 0 }
     - set-control: { part-id: btn_dht, control: pressed, value: 0 }
     - wait-serial: 'T=24.0 H=40.0 alert=normal '
     - wait-serial: '[ui] led=yellow '
-
+    - expect-pin: { part-id: esp, name: '18', value: 1 }
+    - expect-pin: { part-id: esp, name: '19', value: 1 }
+    - expect-pin: { part-id: esp, name: '23', value: 0 }

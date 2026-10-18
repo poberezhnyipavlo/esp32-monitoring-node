@@ -17,6 +17,7 @@
 #include "TemperatureAlert.h"
 #include "WifiKeeper.h"
 #include "drivers/DhtSensor.h"
+#include "drivers/RgbLed.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
 
@@ -66,7 +67,10 @@ constexpr uint32_t kIdleMs = 20;
 
 namespace pins {
 constexpr uint8_t kDht = 4;
-}
+constexpr uint8_t kRgbRed = 18;
+constexpr uint8_t kRgbGreen = 19;
+constexpr uint8_t kRgbBlue = 23;
+}  // namespace pins
 
 namespace temperature {
 constexpr TemperatureLimits kLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.5F};
@@ -84,7 +88,7 @@ constexpr uint32_t kSensorStaleMs = 10000;
 namespace status_led {
 constexpr StatusConfig kConfig{
     .sensor_stale_ms = ui_task::kSensorStaleMs,
-    .blink_period_ms = kMsPerSecond
+    .blink_period_ms = kMsPerSecond,
 };
 }
 
@@ -103,6 +107,8 @@ std::atomic<bool> tcp_up{false};
 TaskHandle_t ui_task_handle = nullptr;
 
 const StatusIndicator status_indicator{status_led::kConfig};
+
+RgbLed led{pins::kRgbRed, pins::kRgbGreen, pins::kRgbBlue};
 
 class Uplink {
 public:
@@ -188,8 +194,10 @@ void uiTaskMain(void* /*arg*/) {
         const Snapshot snapshot = snapshot_store.read();
         const bool wifi = wifi_up.load();
         const bool tcp = tcp_up.load();
-        const Status status = status_indicator.status(snapshot, wifi, tcp, millis());
-
+        const uint32_t now = millis();
+        const Status status = status_indicator.status(snapshot, wifi, tcp, now);
+        const RgbChannels rgb = toRgb(status_indicator.colorAt(status, now));
+        led.set(rgb.red, rgb.green, rgb.blue);
         const bool changed =
             status.color != last_logged.color || status.blinking != last_logged.blinking;
 
@@ -218,6 +226,7 @@ void setup() {
     Serial.println("esp32-monitoring-node");
 
     dht.begin();
+    led.begin();
 
     const BaseType_t created = xTaskCreatePinnedToCore(
         netTaskMain,

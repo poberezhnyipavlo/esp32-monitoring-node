@@ -22,6 +22,12 @@ struct StatusConfig {
     uint32_t blink_period_ms;
 };
 
+struct RgbChannels {
+    bool red;
+    bool green;
+    bool blue;
+};
+
 class StatusIndicator {
 public:
     explicit StatusIndicator(const StatusConfig& config) : config_(config) {};
@@ -34,9 +40,11 @@ public:
     ) const;
 
     [[nodiscard]] StatusColor colorAt(const Status& status, uint32_t now_ms) const;
+    [[nodiscard]] RgbChannels toRgb(StatusColor color);
 
 private:
     StatusConfig config_;
 };
 
 [[nodiscard]] const char* toString(StatusColor color);
+RgbChannels toRgb(StatusColor color);

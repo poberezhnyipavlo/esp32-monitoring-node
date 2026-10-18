@@ -72,3 +72,11 @@ const char* toString(StatusColor color) {
 
     return "unknown";
 }
+
+RgbChannels toRgb(StatusColor color) {
+    return RgbChannels{
+        .red = color == StatusColor::kRed || color == StatusColor::kYellow,
+        .green = color == StatusColor::kGreen || color == StatusColor::kYellow,
+        .blue = color == StatusColor::kBlue,
+    };
+}
