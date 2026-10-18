@@ -3,13 +3,40 @@
 [![CI](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml/badge.svg)](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml)
 
 ESP32 monitoring node: temperature and humidity (DHT11) sent over TCP in
-[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v2; OLED and an RGB status LED are planned.
+[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v2, with an RGB status LED;
+an OLED display is planned.
 Evolved from [esp32-lab](https://github.com/poberezhnyipavlo/esp32-lab) (stages 07 and 13).
 
 Metrics: `temperature_c`, `humidity_pct` every 2 s. Samples wait in a queue while the network
 or the receiver is down and are sent oldest first with their age (`age_ms`).
 
 > Status: 14.2 — DHT11 readings sent over TCP; event bus and temperature alerts next.
+> Status: 14.3 — RGB status LED done; OLED next.
+
+  ## Hardware
+
+  | Part | Pin | Notes |
+  |---|---|---|
+  | DHT11 module (KY-015) | `S` → D4, middle → 3V3, `−` → GND | |
+  | RGB LED, common cathode | R → D18, G → D19, B → D23, common → GND | 220 Ω resistor on each colour; HIGH = on |
+
+  One resistor per colour, not one on the common leg: red needs ~2 V and green/blue ~3 V, so with a
+  shared resistor red would take almost all the current whenever two colours are on.
+
+  ### Status LED
+
+  Highest priority first:
+
+  | Colour | Meaning |
+  |---|---|
+  | red, steady | sensor not working (no successful reading for 10 s) |
+  | blue | starting, no reading yet |
+  | red, blinking | temperature out of range (18…27 °C, 0.5 °C hysteresis) |
+  | yellow | no Wi-Fi or no receiver |
+  | green | all good |
+
+  A dead sensor beats a temperature alert: the last known level is stale, so blinking "too hot" would
+  be a lie. Yellow is red + green; with plain on/off it looks yellow-green (the green die is brighter).
 
 ## Run locally
 
@@ -53,6 +80,9 @@ real hardware is tested manually.
 `test.scenario.yaml` runs on the `wokwi` build (DHT22, Wokwi-GUEST): start, Wi-Fi,
 a failed TCP connect and a retry (nobody listens on the gateway), DHT readings,
 then a sensor fault and recovery.
+
+At the blue, red and yellow states the scenario also checks the RGB pins (`expect-pin` on 18/19/23),
+so swapped colour pins in the firmware fail the run.
 
 **Simulated sensor fault.** Wokwi's DHT22 has no scenario controls and a wire cannot be removed
 from a running simulation, so `diagram.json` has an extra push button `btn_dht` between the DHT
