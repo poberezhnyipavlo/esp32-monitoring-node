@@ -13,9 +13,9 @@
 #include "RetryTimer.h"
 #include "SampleQueue.h"
 #include "SnapshotStore.h"
+#include "StatusIndicator.h"
 #include "TemperatureAlert.h"
 #include "WifiKeeper.h"
-#include "StatusIndicator.h"
 #include "drivers/DhtSensor.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
@@ -82,7 +82,10 @@ constexpr uint32_t kSensorStaleMs = 10000;
 }  // namespace ui_task
 
 namespace status_led {
-constexpr StatusConfig kConfig{.sensor_stale_ms = ui_task::kSensorStaleMs, .blink_period_ms = kMsPerSecond};
+constexpr StatusConfig kConfig{
+    .sensor_stale_ms = ui_task::kSensorStaleMs,
+    .blink_period_ms = kMsPerSecond
+};
 }
 
 SampleQueue<sampling::kQueueCapacity> queue;
@@ -179,7 +182,7 @@ void netTaskMain(void* /*arg*/) {
 }
 
 void uiTaskMain(void* /*arg*/) {
-    Status last_logged{.color=StatusColor::kOff, .blinking=false};
+    Status last_logged{.color = StatusColor::kOff, .blinking = false};
     for (;;) {
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
         const Snapshot snapshot = snapshot_store.read();
@@ -275,13 +278,15 @@ void loop() {
         }
     );
 
-    snapshot_store.write(Snapshot{
-        .has_reading = true,
-        .temperature_c = reading->temperature_c,
-        .humidity_pct = reading->humidity_pct,
-        .level = temperature_alert.level(),
-        .last_ok_ms = now,
-    });
+    snapshot_store.write(
+        Snapshot{
+            .has_reading = true,
+            .temperature_c = reading->temperature_c,
+            .humidity_pct = reading->humidity_pct,
+            .level = temperature_alert.level(),
+            .last_ok_ms = now,
+        }
+    );
     xTaskNotifyGive(ui_task_handle);
 
     const auto stats = queue.stats();

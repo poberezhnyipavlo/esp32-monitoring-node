@@ -34,6 +34,7 @@ public:
     ) const;
 
     [[nodiscard]] StatusColor colorAt(const Status& status, uint32_t now_ms) const;
+
 private:
     StatusConfig config_;
 };

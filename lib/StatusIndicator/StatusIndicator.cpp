@@ -2,10 +2,15 @@
 
 #include <cstdint>
 
-#include "TemperatureAlert.h"
 #include "SnapshotStore.h"
+#include "TemperatureAlert.h"
 
-Status StatusIndicator::status(const Snapshot &snapshot, bool wifi_up, bool tcp_up, uint32_t now_ms) const {
+Status StatusIndicator::status(
+    const Snapshot& snapshot,
+    bool wifi_up,
+    bool tcp_up,
+    uint32_t now_ms
+) const {
     if (now_ms - snapshot.last_ok_ms > config_.sensor_stale_ms) {
         return Status{
             .color = StatusColor::kRed,
@@ -40,7 +45,7 @@ Status StatusIndicator::status(const Snapshot &snapshot, bool wifi_up, bool tcp_
     };
 }
 
-StatusColor StatusIndicator::colorAt(const Status &status, uint32_t now_ms) const {
+StatusColor StatusIndicator::colorAt(const Status& status, uint32_t now_ms) const {
     if (!status.blinking) {
         return status.color;
     }
@@ -48,7 +53,7 @@ StatusColor StatusIndicator::colorAt(const Status &status, uint32_t now_ms) cons
     const auto half = config_.blink_period_ms / 2;
     const auto number = now_ms / half;
 
-    return  number % 2 == 0 ? status.color : StatusColor::kOff;
+    return number % 2 == 0 ? status.color : StatusColor::kOff;
 }
 
 const char* toString(StatusColor color) {

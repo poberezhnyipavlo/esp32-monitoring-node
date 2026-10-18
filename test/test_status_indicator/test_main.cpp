@@ -17,7 +17,7 @@ void expectStatus(const Status& status, StatusColor color, bool blinking) {
     EXPECT_EQ(status.color, color) << toString(status.color);
     EXPECT_EQ(status.blinking, blinking);
 }
-}
+}  // namespace
 
 TEST(StatusIndicator, StartingIsBlue) {
     const StatusIndicator indicator(kConfig);
