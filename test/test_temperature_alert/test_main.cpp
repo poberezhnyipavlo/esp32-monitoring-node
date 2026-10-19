@@ -4,13 +4,15 @@
 #include "TemperatureAlert.h"
 
 namespace {
-constexpr TemperatureLimits kLimits{18.0F, 27.0F, 0.5F};
+constexpr TemperatureLimits kLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.5F};
 static_assert(isValid(kLimits));
-static_assert(!isValid(TemperatureLimits{20.0F, 21.0F, 0.6F}));
-static_assert(!isValid(TemperatureLimits{18.0F, 27.0F, 0.0F}));
+static_assert(!isValid(TemperatureLimits{.min_c = 20.0F, .max_c = 21.0F, .hysteresis_c = 0.6F}));
+static_assert(!isValid(TemperatureLimits{.min_c = 18.0F, .max_c = 27.0F, .hysteresis_c = 0.0F}));
 
 void feed(TemperatureAlert& alert, float temperature_c) {
-    alert.onClimateMeasured(ClimateMeasured{temperature_c, 50.0F, 0});
+    alert.onClimateMeasured(
+        ClimateMeasured{.temperature_c = temperature_c, .humidity_pct = 50.0F, .sampled_at_ms = 0}
+    );
 }
 }  // namespace
 

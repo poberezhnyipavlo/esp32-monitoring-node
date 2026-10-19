@@ -21,11 +21,13 @@ public:
 };
 
 constexpr std::size_t kCapacity = 8;
-const metric::Origin kOrigin{"20:9b:a9:61:15:6c", 0x3f2a91c4};
+const metric::Origin kOrigin{.dev = "20:9b:a9:61:15:6c", .boot = 0x3f2a91c4};
 
 void pushSamples(SampleQueue<kCapacity>& queue, uint32_t count, uint32_t sampled_at_ms) {
     for (uint32_t seq = 0; seq < count; ++seq) {
-        queue.push(Sample{"uptime_s", 1.0, seq, sampled_at_ms});
+        queue.push(
+            Sample{.name = "uptime_s", .value = 1.0, .seq = seq, .sampled_at_ms = sampled_at_ms}
+        );
     }
 }
 }  // namespace
@@ -99,8 +101,8 @@ TEST(QueueSender, RetriesTheSameSampleNextTime) {
 
 TEST(QueueSender, ReportsAgeOfOldestSent) {
     SampleQueue<kCapacity> queue;
-    queue.push(Sample{"uptime_s", 1.0, 0, 1000});
-    queue.push(Sample{"uptime_s", 1.0, 1, 4000});
+    queue.push(Sample{.name = "uptime_s", .value = 1.0, .seq = 0, .sampled_at_ms = 1000});
+    queue.push(Sample{.name = "uptime_s", .value = 1.0, .seq = 1, .sampled_at_ms = 4000});
     MockSink sink;
     {
         const InSequence in_order;
@@ -114,8 +116,8 @@ TEST(QueueSender, ReportsAgeOfOldestSent) {
 
 TEST(QueueSender, SkipsInvalidSampleInsteadOfBlocking) {
     SampleQueue<kCapacity> queue;
-    queue.push(Sample{"bad name", 1.0, 0, 0});
-    queue.push(Sample{"uptime_s", 1.0, 1, 0});
+    queue.push(Sample{.name = "bad name", .value = 1.0, .seq = 0, .sampled_at_ms = 0});
+    queue.push(Sample{.name = "uptime_s", .value = 1.0, .seq = 1, .sampled_at_ms = 0});
     MockSink sink;
     EXPECT_CALL(sink, send(HasSubstr("seq=1 "), _)).WillOnce(Return(true));
 

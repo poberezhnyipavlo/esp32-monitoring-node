@@ -7,10 +7,16 @@
 #include "TemperatureAlert.h"
 
 namespace {
-constexpr StatusConfig kConfig{10000, 1000};
+constexpr StatusConfig kConfig{.sensor_stale_ms = 10000, .blink_period_ms = 1000};
 
 Snapshot reading(uint32_t last_ok_ms, TemperatureLevel level = TemperatureLevel::kNormal) {
-    return Snapshot{true, 24.0F, 40.0F, level, last_ok_ms};
+    return Snapshot{
+        .has_reading = true,
+        .temperature_c = 24.0F,
+        .humidity_pct = 40.0F,
+        .level = level,
+        .last_ok_ms = last_ok_ms
+    };
 }
 
 void expectStatus(const Status& status, StatusColor color, bool blinking) {
@@ -88,7 +94,7 @@ TEST(StatusIndicator, SurvivesMillisWrapAround) {
 
 TEST(StatusIndicator, BlinkingAlternatesEveryHalfPeriod) {
     const StatusIndicator indicator(kConfig);
-    const Status blinking_red{StatusColor::kRed, true};
+    const Status blinking_red{.color = StatusColor::kRed, .blinking = true};
     EXPECT_EQ(indicator.colorAt(blinking_red, 0), StatusColor::kRed);
     EXPECT_EQ(indicator.colorAt(blinking_red, 499), StatusColor::kRed);
     EXPECT_EQ(indicator.colorAt(blinking_red, 500), StatusColor::kOff);
@@ -101,7 +107,7 @@ TEST(StatusIndicator, BlinkingAlternatesEveryHalfPeriod) {
 
 TEST(StatusIndicator, SteadyColourNeverGoesOff) {
     const StatusIndicator indicator(kConfig);
-    const Status steady_green{StatusColor::kGreen, false};
+    const Status steady_green{.color = StatusColor::kGreen, .blinking = false};
     for (const uint32_t t : {0U, 500U, 750U, 1000U}) {
         EXPECT_EQ(indicator.colorAt(steady_green, t), StatusColor::kGreen);
     }

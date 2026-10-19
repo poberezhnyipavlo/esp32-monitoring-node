@@ -22,7 +22,9 @@ TEST(QueueListener, OneEventBecomesTemperatureThenHumidity) {
     SampleQueue<kCapacity> queue;
     QueueListener<kCapacity> listener(queue);
 
-    listener.onClimateMeasured(ClimateMeasured{24.5F, 40.0F, 2000});
+    listener.onClimateMeasured(
+        ClimateMeasured{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000}
+    );
 
     ASSERT_EQ(queue.stats().size, 2U);
     const Sample temperature = popOldest(queue);
@@ -42,8 +44,12 @@ TEST(QueueListener, SequenceContinuesAcrossEvents) {
     SampleQueue<kCapacity> queue;
     QueueListener<kCapacity> listener(queue);
 
-    listener.onClimateMeasured(ClimateMeasured{24.5F, 40.0F, 2000});
-    listener.onClimateMeasured(ClimateMeasured{25.0F, 41.0F, 4000});
+    listener.onClimateMeasured(
+        ClimateMeasured{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000}
+    );
+    listener.onClimateMeasured(
+        ClimateMeasured{.temperature_c = 25.0F, .humidity_pct = 41.0F, .sampled_at_ms = 4000}
+    );
 
     ASSERT_EQ(queue.stats().size, 4U);
     for (uint32_t expected_seq = 0; expected_seq < 4; ++expected_seq) {

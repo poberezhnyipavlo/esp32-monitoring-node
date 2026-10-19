@@ -1,9 +1,12 @@
 #include "Screen.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
-#include <string>
+#include <string_view>
 
+#include "SnapshotStore.h"
+#include "TemperatureAlert.h"
 #include "Units.h"
 
 namespace {
@@ -33,22 +36,16 @@ void setText(TextItem& item, std::string_view text) {
     std::copy_n(text.begin(), length, item.text.begin());
     item.text.at(length) = '\0';
 }
-}  // namespace
 
-Screen buildScreen(
-    const Snapshot& snapshot,
-    bool sensor_stale,
-    bool wifi_up,
-    bool tcp_up,
-    uint32_t now_ms
-) {
+TextItem buildNetwork(bool wifi_up, bool tcp_up) {
     TextItem network{
         .x = 0,
         .y = layout::kNetworkY,
         .size = layout::kSmallText,
     };
 
-    std::snprintf(
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+    const int written = std::snprintf(
         network.text.data(),
         network.text.size(),
         "WiFi:%s TCP:%s",
@@ -56,6 +53,13 @@ Screen buildScreen(
         tcp_up ? "ok" : "no"
     );
 
+    if (written < 0) {
+        setText(network, "?");
+    }
+    return network;
+}
+
+TextItem buildClimate(const Snapshot& snapshot) {
     TextItem climate{.x = 0, .y = layout::kClimateY, .size = layout::kBigText};
 
     if (snapshot.has_reading) {
@@ -74,6 +78,10 @@ Screen buildScreen(
         setText(climate, "--.-C --%");
     }
 
+    return climate;
+}
+
+TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms) {
     TextItem state{
         .x = 0,
         .y = layout::kStateY,
@@ -98,5 +106,20 @@ Screen buildScreen(
         setText(state, formatTemperatureLevel(snapshot.level));
     }
 
-    return Screen{.climate = climate, .state = state, .network = network};
+    return state;
+}
+}  // namespace
+
+Screen buildScreen(
+    const Snapshot& snapshot,
+    bool sensor_stale,
+    bool wifi_up,
+    bool tcp_up,
+    uint32_t now_ms
+) {
+    return Screen{
+        .climate = buildClimate(snapshot),
+        .state = buildState(snapshot, sensor_stale, now_ms),
+        .network = buildNetwork(wifi_up, tcp_up),
+    };
 }

@@ -14,8 +14,24 @@ TEST(SnapshotStore, StartsWithoutReading) {
 
 TEST(SnapshotStore, ReadReturnsLastWritten) {
     SnapshotStore store;
-    store.write(Snapshot{true, 24.5F, 40.0F, TemperatureLevel::kNormal, 2000});
-    store.write(Snapshot{true, 27.4F, 41.0F, TemperatureLevel::kTooHot, 4000});
+    store.write(
+        Snapshot{
+            .has_reading = true,
+            .temperature_c = 24.5F,
+            .humidity_pct = 40.0F,
+            .level = TemperatureLevel::kNormal,
+            .last_ok_ms = 2000
+        }
+    );
+    store.write(
+        Snapshot{
+            .has_reading = true,
+            .temperature_c = 27.4F,
+            .humidity_pct = 41.0F,
+            .level = TemperatureLevel::kTooHot,
+            .last_ok_ms = 4000
+        }
+    );
 
     const Snapshot snapshot = store.read();
     EXPECT_TRUE(snapshot.has_reading);
@@ -33,7 +49,15 @@ TEST(SnapshotStore, ReaderNeverSeesHalfWrittenSnapshot) {
     std::thread writer([&store, &done] {
         for (uint32_t i = 1; i <= kWrites; ++i) {
             const auto value = static_cast<float>(i);
-            store.write(Snapshot{true, value, value, TemperatureLevel::kNormal, i});
+            store.write(
+                Snapshot{
+                    .has_reading = true,
+                    .temperature_c = value,
+                    .humidity_pct = value,
+                    .level = TemperatureLevel::kNormal,
+                    .last_ok_ms = i
+                }
+            );
         }
         done = true;
     });

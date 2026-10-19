@@ -3,12 +3,13 @@
 #include <atomic>
 #include <cstdint>
 #include <thread>
+#include <utility>
 
 #include "SampleQueue.h"
 
 TEST(SampleQueue, PushFrontPop) {
     SampleQueue<4> q;
-    q.push(Sample{"uptime_s", 12, 0, 1000});
+    q.push(Sample{.name = "uptime_s", .value = 12, .seq = 0, .sampled_at_ms = 1000});
     const auto e = q.front();
     ASSERT_TRUE(e.has_value());
     EXPECT_EQ(e->item.name, "uptime_s");
@@ -24,7 +25,7 @@ TEST(SampleQueue, ProducerConsumerKeepsOrderAndCounts) {
 
     std::thread producer([&] {
         for (uint32_t i = 0; i < kTotal; ++i) {
-            q.push(Sample{"x", 0, i, 0});
+            q.push(Sample{.name = "x", .value = 0, .seq = i, .sampled_at_ms = 0});
         }
         done = true;
     });
@@ -42,7 +43,7 @@ TEST(SampleQueue, ProducerConsumerKeepsOrderAndCounts) {
             continue;
         }
         if (q.popFront(e->id)) {
-            ordered = ordered && static_cast<int64_t>(e->item.seq) > last;
+            ordered = ordered && std::cmp_greater(e->item.seq, last);
             last = e->item.seq;
             ++received;
         }

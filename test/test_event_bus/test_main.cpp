@@ -16,7 +16,7 @@ public:
     MOCK_METHOD(void, onClimateMeasured, (const ClimateMeasured& event), (override));
 };
 
-const ClimateMeasured kEvent{24.5F, 40.0F, 2000};
+const ClimateMeasured kEvent{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000};
 
 }  // namespace
 

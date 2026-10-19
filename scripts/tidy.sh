@@ -21,7 +21,7 @@ for dir in "$GTEST_INCLUDE" "$GMOCK_INCLUDE" "$METRIC_INCLUDE"; do
     fi
 done
 
-FLAGS=(-std=c++17 -isystem "$METRIC_INCLUDE")
+FLAGS=(-std=c++20 -isystem "$METRIC_INCLUDE")
 for dir in lib/*/; do FLAGS+=("-I$PWD/${dir%/}"); done  # absolute: HeaderFilterRegex needs /lib/ in the path
 if [[ "$(uname)" == "Darwin" ]]; then
     FLAGS+=(-isysroot "$(xcrun --show-sdk-path)")  # non-Apple clang needs the SDK to find libc++
