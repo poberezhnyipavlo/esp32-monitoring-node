@@ -38,6 +38,21 @@ or the receiver is down and are sent oldest first with their age (`age_ms`).
   A dead sensor beats a temperature alert: the last known level is stale, so blinking "too hot" would
   be a lie. Yellow is red + green; with plain on/off it looks yellow-green (the green die is brighter).
 
+  ### Display
+
+  <img src="docs/wokwi-oled.png" width="384" alt="OLED in Wokwi">
+
+      24.3C 41%          climate, last known values (large text)
+      OK                 OK / STARTING / TOO HOT / TOO COLD / SENSOR FAIL 12s
+      WiFi:ok TCP:no     network
+
+  What to show is decided by `buildScreen()` in `lib/Screen` (pure function, unit-tested on the host);
+  the `Oled` driver only draws it. The screen is rebuilt every 250 ms but sent over I2C only when the
+  text changes, so the `SENSOR FAIL` counter redraws once a second and a steady screen not at all.
+  The node runs without a display: if nothing answers on 0x3C/0x3D the log says `[app] oled not found`.
+
+  The screenshot is from Wokwi, where no receiver listens, hence `TCP:no`.
+
 ## Run locally
 
 ```bash
@@ -84,6 +99,8 @@ then a sensor fault and recovery.
 At the blue, red and yellow states the scenario also checks the RGB pins (`expect-pin` on 18/19/23),
 so swapped colour pins in the firmware fail the run.
 
+The scenario also waits for `[app] oled found`; `diagram.json` has a `board-ssd1306` on 21/22.
+
 **Simulated sensor fault.** Wokwi's DHT22 has no scenario controls and a wire cannot be removed
 from a running simulation, so `diagram.json` has an extra push button `btn_dht` between the DHT
 data line and GND. Released, the circuit matches the real board; pressed (by the scenario), the
@@ -110,7 +127,11 @@ Indentation is 4 spaces; arguments that do not fit go one per line.
 | wokwi-cli | 0.27.1 |
 | Adafruit DHT sensor library | 1.4.7 |
 | GitHub runner | ubuntu-24.04 |
+| Adafruit SSD1306 / GFX / BusIO | 2.5.17 / 1.12.6 / 1.17.4 |
 
 ## Sizes
 
-`esp32dev`: Flash 921 712 bytes (70.3 %), RAM 71 680 bytes (21.9 %).
+`esp32dev`: Flash 967 712 bytes (73.8 %), RAM 73 328 bytes (22.4 %).
+The OLED libraries add about 44 KB of flash.
+Stack of the `ui` task: 6144 bytes, at least 3836 left free on hardware (with 4096 only 1932 were left,
+too close to the canary after drawing was added).
