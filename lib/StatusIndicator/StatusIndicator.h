@@ -40,7 +40,7 @@ public:
     ) const;
 
     [[nodiscard]] StatusColor colorAt(const Status& status, uint32_t now_ms) const;
-    [[nodiscard]] RgbChannels toRgb(StatusColor color);
+    [[nodiscard]] bool isSensorStale(const Snapshot& snapshot, uint32_t now_ms) const;
 
 private:
     StatusConfig config_;

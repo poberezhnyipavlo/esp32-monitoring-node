@@ -11,7 +11,7 @@ Status StatusIndicator::status(
     bool tcp_up,
     uint32_t now_ms
 ) const {
-    if (now_ms - snapshot.last_ok_ms > config_.sensor_stale_ms) {
+    if (isSensorStale(snapshot, now_ms)) {
         return Status{
             .color = StatusColor::kRed,
             .blinking = false,
@@ -71,6 +71,10 @@ const char* toString(StatusColor color) {
     }
 
     return "unknown";
+}
+
+bool StatusIndicator::isSensorStale(const Snapshot& snapshot, uint32_t now_ms) const {
+    return now_ms - snapshot.last_ok_ms > config_.sensor_stale_ms;
 }
 
 RgbChannels toRgb(StatusColor color) {

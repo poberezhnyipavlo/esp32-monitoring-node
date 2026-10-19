@@ -12,11 +12,14 @@
 #include "QueueSender.h"
 #include "RetryTimer.h"
 #include "SampleQueue.h"
+#include "Screen.h"
 #include "SnapshotStore.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
+#include "Units.h"
 #include "WifiKeeper.h"
 #include "drivers/DhtSensor.h"
+#include "drivers/Oled.h"
 #include "drivers/RgbLed.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
@@ -38,8 +41,6 @@ constexpr int32_t kWifiChannel = 0;
 #endif
 
 namespace {
-constexpr uint32_t kMsPerSecond = 1000;
-
 namespace sampling {
 constexpr uint32_t kPeriodMs = 2000;
 constexpr size_t kQueueCapacity = 1000;
@@ -78,7 +79,7 @@ static_assert(isValid(kLimits), "temperature limits: bands overlap or no hystere
 }  // namespace temperature
 
 namespace ui_task {
-constexpr uint32_t kStackBytes = 4096;
+constexpr uint32_t kStackBytes = 6144;
 constexpr UBaseType_t kPriority = 1;
 constexpr BaseType_t kCore = 1;
 constexpr uint32_t kTicksMs = 250;
@@ -88,7 +89,7 @@ constexpr uint32_t kSensorStaleMs = 10000;
 namespace status_led {
 constexpr StatusConfig kConfig{
     .sensor_stale_ms = ui_task::kSensorStaleMs,
-    .blink_period_ms = kMsPerSecond,
+    .blink_period_ms = units::kMsPerSecond,
 };
 }
 
@@ -109,6 +110,9 @@ TaskHandle_t ui_task_handle = nullptr;
 const StatusIndicator status_indicator{status_led::kConfig};
 
 RgbLed led{pins::kRgbRed, pins::kRgbGreen, pins::kRgbBlue};
+
+Oled oled;
+bool oled_ready = false;
 
 class Uplink {
 public:
@@ -189,6 +193,7 @@ void netTaskMain(void* /*arg*/) {
 
 void uiTaskMain(void* /*arg*/) {
     Status last_logged{.color = StatusColor::kOff, .blinking = false};
+    Screen last_drawn{};
     for (;;) {
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
         const Snapshot snapshot = snapshot_store.read();
@@ -200,6 +205,14 @@ void uiTaskMain(void* /*arg*/) {
         led.set(rgb.red, rgb.green, rgb.blue);
         const bool changed =
             status.color != last_logged.color || status.blinking != last_logged.blinking;
+
+        const Screen screen =
+            buildScreen(snapshot, status_indicator.isSensorStale(snapshot, now), wifi, tcp, now);
+
+        if (oled_ready && screen != last_drawn) {
+            oled.draw(screen);
+            last_drawn = screen;
+        }
 
         if (notified > 0 || changed) {
             Serial.printf(
@@ -227,6 +240,9 @@ void setup() {
 
     dht.begin();
     led.begin();
+    oled_ready = oled.begin();
+
+    Serial.println(oled_ready ? "[app] oled found" : "[app] oled not found");
 
     const BaseType_t created = xTaskCreatePinnedToCore(
         netTaskMain,

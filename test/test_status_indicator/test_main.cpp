@@ -128,6 +128,12 @@ TEST(ToRgb, PrimaryColoursLightOneChannel) {
 
 TEST(ToRgb, YellowIsRedPlusGreen) { expectChannels(StatusColor::kYellow, true, true, false); }
 
+TEST(StatusIndicator, SensorStaleOnlyStrictlyAfterThreshold) {
+    const StatusIndicator indicator(kConfig);
+    EXPECT_FALSE(indicator.isSensorStale(reading(5000), 15000));
+    EXPECT_TRUE(indicator.isSensorStale(reading(5000), 15001));
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
