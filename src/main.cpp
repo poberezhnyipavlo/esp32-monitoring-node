@@ -49,6 +49,7 @@ constexpr size_t kQueueCapacity = 1000;
 namespace tcp {
 constexpr int32_t kConnectTimeoutMs = 3000;
 constexpr uint32_t kRetryBaseMs = 1000;
+constexpr uint32_t kStableMs = 10000;
 constexpr uint32_t kRetryMaxMs = 30000;
 constexpr uint16_t kPort = 9002;
 }  // namespace tcp
@@ -175,7 +176,7 @@ private:
         kMonitorHost,
         tcp::kPort,
         tcp::kConnectTimeoutMs,
-        RetryTimer{tcp::kRetryBaseMs, tcp::kRetryMaxMs}
+        RetryTimer{tcp::kRetryBaseMs, tcp::kRetryMaxMs, tcp::kStableMs}
     };
     QueueSender<sampling::kQueueCapacity> sender_{queue, tcp_};
     std::array<char, metric::k_dev_len + 1> dev_{};

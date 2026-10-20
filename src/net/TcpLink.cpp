@@ -56,7 +56,7 @@ void TcpLink::tryConnect() {
         return;
     }
     client_.setNoDelay(true);
-    retry_.succeeded();
+    retry_.succeeded(millis());
     open_ = true;
     Serial.printf("[net] TCP: connected in %lu ms\n", static_cast<unsigned long>(took));
 }
@@ -76,8 +76,6 @@ bool TcpLink::send(const char* data, std::size_t len) {
         drop("write failed");
         return false;
     }
-
-    retry_.succeeded();
 
     return true;
 }

@@ -5,8 +5,18 @@
 
 #include "RetryTimer.h"
 
+namespace {
+
+constexpr uint32_t kBaseMs = 1000;
+constexpr uint32_t kMaxMs = 30000;
+constexpr uint32_t kStableMs = 10000;
+
+RetryTimer makeTimer() { return RetryTimer(kBaseMs, kMaxMs, kStableMs); }
+
+}  // namespace
+
 TEST(RetryTimer, DueBeforeAnyFailure) {
-    const RetryTimer t(1000, 30000);
+    const RetryTimer t = makeTimer();
     EXPECT_TRUE(t.due(0));
     EXPECT_TRUE(t.due(123456));
     EXPECT_EQ(t.delayMs(), 0U);
@@ -14,7 +24,7 @@ TEST(RetryTimer, DueBeforeAnyFailure) {
 }
 
 TEST(RetryTimer, WaitsBaseAfterFirstFailure) {
-    RetryTimer t(1000, 30000);
+    RetryTimer t = makeTimer();
     t.failed(5000);
     EXPECT_EQ(t.delayMs(), 1000U);
     EXPECT_FALSE(t.due(5000));
@@ -23,7 +33,7 @@ TEST(RetryTimer, WaitsBaseAfterFirstFailure) {
 }
 
 TEST(RetryTimer, DoublesUpToMax) {
-    RetryTimer t(1000, 30000);
+    RetryTimer t = makeTimer();
     uint32_t now = 0;
     const std::array<uint32_t, 7> expected = {1000, 2000, 4000, 8000, 16000, 30000, 30000};
     for (const uint32_t delay : expected) {
@@ -34,29 +44,97 @@ TEST(RetryTimer, DoublesUpToMax) {
     EXPECT_EQ(t.failures(), 7U);
 }
 
-TEST(RetryTimer, SuccessResets) {
-    RetryTimer t(1000, 30000);
+TEST(RetryTimer, StableSuccessResetsPause) {
+    RetryTimer t = makeTimer();
     t.failed(0);
     t.failed(1000);
     t.failed(3000);
-    EXPECT_EQ(t.delayMs(), 4000U);
-    t.succeeded();
-    EXPECT_TRUE(t.due(3001));
-    EXPECT_EQ(t.failures(), 0U);
-    t.failed(10000);
+    ASSERT_EQ(t.delayMs(), 4000U);
+    t.succeeded(7000);
+    t.failed(7000 + kStableMs);
     EXPECT_EQ(t.delayMs(), 1000U);
+    EXPECT_EQ(t.failures(), 1U);
+}
+
+TEST(RetryTimer, ShortSuccessKeepsDoubling) {
+    // A peer that accepts and drops at once: 1 -> 2 -> 4 s, not 1 s forever.
+    RetryTimer t = makeTimer();
+    uint32_t now = 0;
+    const std::array<uint32_t, 3> expected = {1000, 2000, 4000};
+    for (const uint32_t delay : expected) {
+        t.succeeded(now);
+        t.failed(now + 50);
+        EXPECT_EQ(t.delayMs(), delay);
+        now += 50 + t.delayMs();
+    }
+}
+
+TEST(RetryTimer, StableOnlyFromThresholdOn) {
+    RetryTimer almost = makeTimer();
+    almost.failed(0);
+    almost.succeeded(1000);
+    almost.failed(1000 + kStableMs - 1);
+    EXPECT_EQ(almost.delayMs(), 2000U);
+
+    RetryTimer exactly = makeTimer();
+    exactly.failed(0);
+    exactly.succeeded(1000);
+    exactly.failed(1000 + kStableMs);
+    EXPECT_EQ(exactly.delayMs(), 1000U);
+}
+
+TEST(RetryTimer, OldSuccessDoesNotResetLaterFailures) {
+    // Stable for 10 min, then the receiver is gone: connects fail without a success between them.
+    RetryTimer t = makeTimer();
+    t.succeeded(0);
+    t.failed(600000);
+    EXPECT_EQ(t.delayMs(), 1000U);
+    t.failed(601000);
+    EXPECT_EQ(t.delayMs(), 2000U);
+    t.failed(603000);
+    EXPECT_EQ(t.delayMs(), 4000U);
+}
+
+TEST(RetryTimer, ShortSuccessIsForgottenAfterFailure) {
+    RetryTimer t = makeTimer();
+    t.succeeded(0);
+    t.failed(50);
+    uint32_t now = 50;
+    const std::array<uint32_t, 4> expected = {2000, 4000, 8000, 16000};
+    for (const uint32_t delay : expected) {
+        now += t.delayMs();
+        t.failed(now);
+        EXPECT_EQ(t.delayMs(), delay);
+    }
+}
+
+TEST(RetryTimer, SuccessAloneChangesNothing) {
+    RetryTimer t = makeTimer();
+    t.failed(0);
+    t.succeeded(1000);
+    EXPECT_EQ(t.delayMs(), 1000U);
+    EXPECT_EQ(t.failures(), 1U);
 }
 
 TEST(RetryTimer, WorksAcrossMillisOverflow) {
-    RetryTimer t(1000, 30000);
+    RetryTimer t = makeTimer();
     const uint32_t before_wrap = UINT32_MAX - 300;
     t.failed(before_wrap);
     EXPECT_FALSE(t.due(before_wrap + 500));
     EXPECT_TRUE(t.due(before_wrap + 1000));
 }
 
+TEST(RetryTimer, StableAcrossMillisOverflow) {
+    RetryTimer t = makeTimer();
+    const uint32_t before_wrap = UINT32_MAX - 300;
+    t.failed(before_wrap - 5000);
+    t.succeeded(before_wrap);
+    t.failed(before_wrap + kStableMs);
+    EXPECT_EQ(t.delayMs(), 1000U);
+}
+
 TEST(RetryTimer, MaxNotMultipleOfBase) {
-    RetryTimer t(3000, 10000);
+    RetryTimer t(3000, 10000, kStableMs);
     t.failed(0);
     EXPECT_EQ(t.delayMs(), 3000U);
     t.failed(0);
