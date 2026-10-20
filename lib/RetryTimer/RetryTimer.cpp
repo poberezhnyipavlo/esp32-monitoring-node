@@ -28,3 +28,9 @@ void RetryTimer::failed(uint32_t now_ms) {
 }
 
 void RetryTimer::succeeded(uint32_t now_ms) { succeeded_at_ms_ = now_ms; }
+
+void RetryTimer::reset() {
+    failures_ = 0;
+    delay_ms_ = 0;
+    succeeded_at_ms_ = 0;
+}

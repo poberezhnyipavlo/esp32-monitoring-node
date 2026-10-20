@@ -11,6 +11,7 @@ public:
 
     void failed(uint32_t now_ms);
     void succeeded(uint32_t now_ms);
+    void reset();
 
     [[nodiscard]] uint32_t delayMs() const { return delay_ms_; }
 

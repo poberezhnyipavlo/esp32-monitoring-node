@@ -26,6 +26,7 @@ private:
     void resolve();
     void tryConnect();
     void drop(const char* reason);
+    void disconnect();
 
     const char* host_;
     uint16_t port_;

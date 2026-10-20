@@ -143,6 +143,19 @@ TEST(RetryTimer, MaxNotMultipleOfBase) {
     EXPECT_EQ(t.delayMs(), 10000U);
 }
 
+TEST(RetryTimer, ResetForgetsHistory) {
+    RetryTimer t = makeTimer();
+    t.failed(0);
+    t.failed(1000);
+    t.succeeded(3000);
+    t.reset();
+    EXPECT_EQ(t.failures(), 0U);
+    EXPECT_EQ(t.delayMs(), 0U);
+    EXPECT_TRUE(t.due(3001));
+    t.failed(5000);
+    EXPECT_EQ(t.delayMs(), 1000U);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

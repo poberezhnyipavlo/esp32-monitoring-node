@@ -17,8 +17,8 @@ void TcpLink::resolve() {
 }
 
 void TcpLink::close() {
-    open_ = false;
-    client_.stop();
+    disconnect();
+    retry_.reset();
 }
 
 void TcpLink::update(uint32_t now_ms) {
@@ -62,7 +62,7 @@ void TcpLink::tryConnect() {
 }
 
 void TcpLink::drop(const char* reason) {
-    close();
+    disconnect();
     retry_.failed(millis());
     Serial.printf(
         "[net] TCP: %s, retry in %lu ms\n",
@@ -78,4 +78,9 @@ bool TcpLink::send(const char* data, std::size_t len) {
     }
 
     return true;
+}
+
+void TcpLink::disconnect() {
+    open_ = false;
+    client_.stop();
 }
