@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "NetworkState.h"
 #include "SnapshotStore.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
@@ -27,35 +28,51 @@ void expectStatus(const Status& status, StatusColor color, bool blinking) {
 
 TEST(StatusIndicator, StartingIsBlue) {
     const StatusIndicator indicator(kConfig);
-    expectStatus(indicator.status(Snapshot{}, false, false, 1000), StatusColor::kBlue, false);
+    expectStatus(
+        indicator.status(Snapshot{}, NetworkState::kNoWifi, 1000),
+        StatusColor::kBlue,
+        false
+    );
 }
 
 TEST(StatusIndicator, SensorMissingFromBootIsRedAfterStaleTime) {
     const StatusIndicator indicator(kConfig);
-    expectStatus(indicator.status(Snapshot{}, true, true, 10001), StatusColor::kRed, false);
+    expectStatus(
+        indicator.status(Snapshot{}, NetworkState::kOnline, 10001),
+        StatusColor::kRed,
+        false
+    );
 }
 
 TEST(StatusIndicator, StaleOnlyStrictlyAfterThreshold) {
     const StatusIndicator indicator(kConfig);
-    expectStatus(indicator.status(reading(5000), true, true, 15000), StatusColor::kGreen, false);
-    expectStatus(indicator.status(reading(5000), true, true, 15001), StatusColor::kRed, false);
+    expectStatus(
+        indicator.status(reading(5000), NetworkState::kOnline, 15000),
+        StatusColor::kGreen,
+        false
+    );
+    expectStatus(
+        indicator.status(reading(5000), NetworkState::kOnline, 15001),
+        StatusColor::kRed,
+        false
+    );
 }
 
 TEST(StatusIndicator, SensorNotWorkingBeatsOldTemperatureAlert) {
     const StatusIndicator indicator(kConfig);
     const Snapshot old_hot = reading(5000, TemperatureLevel::kTooHot);
-    expectStatus(indicator.status(old_hot, true, true, 20000), StatusColor::kRed, false);
+    expectStatus(indicator.status(old_hot, NetworkState::kOnline, 20000), StatusColor::kRed, false);
 }
 
 TEST(StatusIndicator, TemperatureOutOfRangeBlinksRed) {
     const StatusIndicator indicator(kConfig);
     expectStatus(
-        indicator.status(reading(5000, TemperatureLevel::kTooHot), true, true, 6000),
+        indicator.status(reading(5000, TemperatureLevel::kTooHot), NetworkState::kOnline, 6000),
         StatusColor::kRed,
         true
     );
     expectStatus(
-        indicator.status(reading(5000, TemperatureLevel::kTooCold), true, true, 6000),
+        indicator.status(reading(5000, TemperatureLevel::kTooCold), NetworkState::kOnline, 6000),
         StatusColor::kRed,
         true
     );
@@ -64,7 +81,7 @@ TEST(StatusIndicator, TemperatureOutOfRangeBlinksRed) {
 TEST(StatusIndicator, TemperatureAlertBeatsNetwork) {
     const StatusIndicator indicator(kConfig);
     expectStatus(
-        indicator.status(reading(5000, TemperatureLevel::kTooHot), false, false, 6000),
+        indicator.status(reading(5000, TemperatureLevel::kTooHot), NetworkState::kNoWifi, 6000),
         StatusColor::kRed,
         true
     );
@@ -72,13 +89,25 @@ TEST(StatusIndicator, TemperatureAlertBeatsNetwork) {
 
 TEST(StatusIndicator, NoWifiOrNoReceiverIsYellow) {
     const StatusIndicator indicator(kConfig);
-    expectStatus(indicator.status(reading(5000), false, false, 6000), StatusColor::kYellow, false);
-    expectStatus(indicator.status(reading(5000), true, false, 6000), StatusColor::kYellow, false);
+    expectStatus(
+        indicator.status(reading(5000), NetworkState::kNoWifi, 6000),
+        StatusColor::kYellow,
+        false
+    );
+    expectStatus(
+        indicator.status(reading(5000), NetworkState::kNoReceiver, 6000),
+        StatusColor::kYellow,
+        false
+    );
 }
 
 TEST(StatusIndicator, AllGoodIsGreen) {
     const StatusIndicator indicator(kConfig);
-    expectStatus(indicator.status(reading(5000), true, true, 6000), StatusColor::kGreen, false);
+    expectStatus(
+        indicator.status(reading(5000), NetworkState::kOnline, 6000),
+        StatusColor::kGreen,
+        false
+    );
 }
 
 TEST(StatusIndicator, SurvivesMillisWrapAround) {
@@ -86,7 +115,7 @@ TEST(StatusIndicator, SurvivesMillisWrapAround) {
     const uint32_t just_before_wrap = 0xFFFFFF00U;
     const uint32_t just_after_wrap = 0x00000100U;
     expectStatus(
-        indicator.status(reading(just_before_wrap), true, true, just_after_wrap),
+        indicator.status(reading(just_before_wrap), NetworkState::kOnline, just_after_wrap),
         StatusColor::kGreen,
         false
     );

@@ -2,13 +2,13 @@
 
 #include <cstdint>
 
+#include "NetworkState.h"
 #include "SnapshotStore.h"
 #include "TemperatureAlert.h"
 
 Status StatusIndicator::status(
     const Snapshot& snapshot,
-    bool wifi_up,
-    bool tcp_up,
+    NetworkState network_state,
     uint32_t now_ms
 ) const {
     if (isSensorStale(snapshot, now_ms)) {
@@ -32,7 +32,7 @@ Status StatusIndicator::status(
         };
     }
 
-    if (!wifi_up || !tcp_up) {
+    if (network_state != NetworkState::kOnline) {
         return Status{
             .color = StatusColor::kYellow,
             .blinking = false,

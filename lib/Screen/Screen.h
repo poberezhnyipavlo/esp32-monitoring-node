@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "NetworkState.h"
 #include "SnapshotStore.h"
 
 constexpr std::size_t kLineCapacity = 22;
@@ -27,7 +28,6 @@ struct Screen {
 [[nodiscard]] Screen buildScreen(
     const Snapshot& snapshot,
     bool sensor_stale,
-    bool wifi_up,
-    bool tcp_up,
+    NetworkState network_state,
     uint32_t now_ms
 );

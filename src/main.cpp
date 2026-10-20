@@ -8,6 +8,7 @@
 #include <atomic>
 
 #include "EventBus.h"
+#include "NetworkState.h"
 #include "QueueListener.h"
 #include "QueueSender.h"
 #include "RetryTimer.h"
@@ -104,8 +105,7 @@ TaskHandle_t net_task_handle = nullptr;
 DhtSensor dht{pins::kDht, DHT_SENSOR_TYPE};
 
 SnapshotStore snapshot_store;
-std::atomic<bool> wifi_up{false};
-std::atomic<bool> tcp_up{false};
+std::atomic<NetworkState> network_state{NetworkState::kNoWifi};
 TaskHandle_t ui_task_handle = nullptr;
 
 const StatusIndicator status_indicator{status_led::kConfig};
@@ -135,16 +135,15 @@ public:
     void loopOnce() {
         const uint32_t now = millis();
         wifi_.update(now);
-        wifi_up = wifi_.isConnected();
         if (!wifi_.isConnected()) {
             tcp_.close();
-            tcp_up = false;
+            network_state = NetworkState::kNoWifi;
             last_rssi = 0;
             return;
         }
         last_rssi = wifi_.rssi();
         tcp_.update(now);
-        tcp_up = tcp_.isOpen();
+        network_state = tcp_.isOpen() ? NetworkState::kOnline : NetworkState::kNoReceiver;
         if (!tcp_.isOpen()) {
             return;
         }
@@ -198,17 +197,16 @@ void uiTaskMain(void* /*arg*/) {
     for (;;) {
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
         const Snapshot snapshot = snapshot_store.read();
-        const bool wifi = wifi_up.load();
-        const bool tcp = tcp_up.load();
+        const NetworkState network = network_state.load();
         const uint32_t now = millis();
-        const Status status = status_indicator.status(snapshot, wifi, tcp, now);
+        const Status status = status_indicator.status(snapshot, network, now);
         const RgbChannels rgb = toRgb(status_indicator.colorAt(status, now));
         led.set(rgb.red, rgb.green, rgb.blue);
         const bool changed =
             status.color != last_logged.color || status.blinking != last_logged.blinking;
 
         const Screen screen =
-            buildScreen(snapshot, status_indicator.isSensorStale(snapshot, now), wifi, tcp, now);
+            buildScreen(snapshot, status_indicator.isSensorStale(snapshot, now), network, now);
 
         if (oled_ready && screen != last_drawn) {
             oled.draw(screen);
@@ -217,14 +215,13 @@ void uiTaskMain(void* /*arg*/) {
 
         if (notified > 0 || changed) {
             Serial.printf(
-                "[ui] led=%s%s T=%.1f H=%.1f alert=%s wifi=%d tcp=%d stack_free=%u\n",
+                "[ui] led=%s%s T=%.1f H=%.1f alert=%s net=%s stack_free=%u\n",
                 toString(status.color),
                 status.blinking ? " blink" : "",
                 snapshot.temperature_c,
                 snapshot.humidity_pct,
                 toString(snapshot.level),
-                wifi ? 1 : 0,
-                tcp ? 1 : 0,
+                toString(network).data(),
                 static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr))
             );
         }

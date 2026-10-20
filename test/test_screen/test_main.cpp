@@ -2,6 +2,7 @@
 
 #include <string_view>
 
+#include "NetworkState.h"
 #include "Screen.h"
 #include "SnapshotStore.h"
 #include "TemperatureAlert.h"
@@ -25,50 +26,62 @@ std::string_view text(const TextItem& item) { return item.text.data(); }
 }  // namespace
 
 TEST(Screen, ClimateWithOneDecimalAndWholePercent) {
-    const Screen screen = buildScreen(normal(), false, true, true, 6000);
+    const Screen screen = buildScreen(normal(), false, NetworkState::kOnline, 6000);
     EXPECT_EQ(text(screen.climate), "24.3C 41%");
 }
 
 TEST(Screen, NoReadingYetShowsDashes) {
-    const Screen screen = buildScreen(Snapshot{}, false, false, false, 1000);
+    const Screen screen = buildScreen(Snapshot{}, false, NetworkState::kNoWifi, 1000);
     EXPECT_EQ(text(screen.climate), "--.-C --%");
     EXPECT_EQ(text(screen.state), "STARTING");
 }
 
 TEST(Screen, NormalTemperatureIsOk) {
-    EXPECT_EQ(text(buildScreen(normal(), false, true, true, 6000).state), "OK");
+    EXPECT_EQ(text(buildScreen(normal(), false, NetworkState::kOnline, 6000).state), "OK");
 }
 
 TEST(Screen, TemperatureAlerts) {
     const Snapshot hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
     const Snapshot cold = reading(17.0F, 50.0F, TemperatureLevel::kTooCold);
-    EXPECT_EQ(text(buildScreen(hot, false, true, true, 6000).state), "TOO HOT");
-    EXPECT_EQ(text(buildScreen(cold, false, true, true, 6000).state), "TOO COLD");
+    EXPECT_EQ(text(buildScreen(hot, false, NetworkState::kOnline, 6000).state), "TOO HOT");
+    EXPECT_EQ(text(buildScreen(cold, false, NetworkState::kOnline, 6000).state), "TOO COLD");
 }
 
 TEST(Screen, StaleSensorShowsSecondsSinceLastReading) {
-    const Screen screen = buildScreen(normal(), true, true, true, 17000);
+    const Screen screen = buildScreen(normal(), true, NetworkState::kOnline, 17000);
     EXPECT_EQ(text(screen.state), "SENSOR FAIL 12s");
 }
 
 TEST(Screen, StaleSensorKeepsLastKnownClimate) {
-    const Screen screen = buildScreen(normal(), true, true, true, 17000);
+    const Screen screen = buildScreen(normal(), true, NetworkState::kOnline, 17000);
     EXPECT_EQ(text(screen.climate), "24.3C 41%");
 }
 
 TEST(Screen, SensorFailBeatsTemperatureAlert) {
     const Snapshot old_hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
-    EXPECT_EQ(text(buildScreen(old_hot, true, true, true, 17000).state), "SENSOR FAIL 12s");
+    EXPECT_EQ(
+        text(buildScreen(old_hot, true, NetworkState::kOnline, 17000).state),
+        "SENSOR FAIL 12s"
+    );
 }
 
 TEST(Screen, NetworkFlags) {
-    EXPECT_EQ(text(buildScreen(normal(), false, true, true, 6000).network), "WiFi:ok TCP:ok");
-    EXPECT_EQ(text(buildScreen(normal(), false, true, false, 6000).network), "WiFi:ok TCP:no");
-    EXPECT_EQ(text(buildScreen(normal(), false, false, false, 6000).network), "WiFi:no TCP:no");
+    EXPECT_EQ(
+        text(buildScreen(normal(), false, NetworkState::kOnline, 6000).network),
+        "WiFi:ok TCP:ok"
+    );
+    EXPECT_EQ(
+        text(buildScreen(normal(), false, NetworkState::kNoReceiver, 6000).network),
+        "WiFi:ok TCP:no"
+    );
+    EXPECT_EQ(
+        text(buildScreen(normal(), false, NetworkState::kNoWifi, 6000).network),
+        "WiFi:no TCP:no"
+    );
 }
 
 TEST(Screen, ClimateIsBigOtherLinesSmallAndApart) {
-    const Screen screen = buildScreen(normal(), false, true, true, 6000);
+    const Screen screen = buildScreen(normal(), false, NetworkState::kOnline, 6000);
     EXPECT_EQ(screen.climate.size, 2);
     EXPECT_EQ(screen.state.size, 1);
     EXPECT_EQ(screen.network.size, 1);
@@ -78,16 +91,16 @@ TEST(Screen, ClimateIsBigOtherLinesSmallAndApart) {
 
 TEST(Screen, SameInputsGiveEqualScreens) {
     EXPECT_EQ(
-        buildScreen(normal(), false, true, true, 6000),
-        buildScreen(normal(), false, true, true, 6000)
+        buildScreen(normal(), false, NetworkState::kOnline, 6000),
+        buildScreen(normal(), false, NetworkState::kOnline, 6000)
     );
 }
 
 TEST(Screen, ChangeIsVisibleInComparison) {
-    const Screen before = buildScreen(normal(), true, true, true, 17000);
-    EXPECT_EQ(before, buildScreen(normal(), true, true, true, 17999));
-    EXPECT_NE(before, buildScreen(normal(), true, true, true, 18000));
-    EXPECT_NE(before, buildScreen(normal(), true, false, false, 17000));
+    const Screen before = buildScreen(normal(), true, NetworkState::kOnline, 17000);
+    EXPECT_EQ(before, buildScreen(normal(), true, NetworkState::kOnline, 17999));
+    EXPECT_NE(before, buildScreen(normal(), true, NetworkState::kOnline, 18000));
+    EXPECT_NE(before, buildScreen(normal(), true, NetworkState::kNoWifi, 17000));
 }
 
 int main(int argc, char** argv) {

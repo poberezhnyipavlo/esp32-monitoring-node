@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string_view>
 
+#include "NetworkState.h"
 #include "SnapshotStore.h"
 #include "TemperatureAlert.h"
 #include "Units.h"
@@ -37,7 +38,7 @@ void setText(TextItem& item, std::string_view text) {
     item.text.at(length) = '\0';
 }
 
-TextItem buildNetwork(bool wifi_up, bool tcp_up) {
+TextItem buildNetwork(NetworkState network_state) {
     TextItem network{
         .x = 0,
         .y = layout::kNetworkY,
@@ -49,8 +50,8 @@ TextItem buildNetwork(bool wifi_up, bool tcp_up) {
         network.text.data(),
         network.text.size(),
         "WiFi:%s TCP:%s",
-        wifi_up ? "ok" : "no",
-        tcp_up ? "ok" : "no"
+        network_state != NetworkState::kNoWifi ? "ok" : "no",
+        network_state == NetworkState::kOnline ? "ok" : "no"
     );
 
     if (written < 0) {
@@ -113,13 +114,12 @@ TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms
 Screen buildScreen(
     const Snapshot& snapshot,
     bool sensor_stale,
-    bool wifi_up,
-    bool tcp_up,
+    NetworkState network_state,
     uint32_t now_ms
 ) {
     return Screen{
         .climate = buildClimate(snapshot),
         .state = buildState(snapshot, sensor_stale, now_ms),
-        .network = buildNetwork(wifi_up, tcp_up),
+        .network = buildNetwork(network_state),
     };
 }

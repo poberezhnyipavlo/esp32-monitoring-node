@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "NetworkState.h"
 #include "SnapshotStore.h"
 
 enum class StatusColor : uint8_t {
@@ -34,8 +35,7 @@ public:
 
     [[nodiscard]] Status status(
         const Snapshot& snapshot,
-        bool wifi_up,
-        bool tcp_up,
+        NetworkState network_state,
         uint32_t now_ms
     ) const;
 
