@@ -289,6 +289,7 @@ void loop() {
 
     const std::optional<ClimateReading> reading = dht.read();
     if (!reading) {
+        bus.publish(ClimateReadFailed{.sampled_at_ms = now});
         Serial.println("[app] dht read failed");
         return;
     }

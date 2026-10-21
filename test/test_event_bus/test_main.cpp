@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "ClimateMeasured.h"
+#include "ClimateReadFailed.h"
 #include "EventBus.h"
 #include "Listener.h"
 #include "TemperatureAlert.h"
@@ -15,6 +16,7 @@ using ::testing::InSequence;
 class MockListener : public Listener {
 public:
     MOCK_METHOD(void, onClimateMeasured, (const ClimateMeasured& event), (override));
+    MOCK_METHOD(void, onClimateReadFailed, (const ClimateReadFailed& event), (override));
 };
 
 const ClimateMeasured kEvent{
@@ -56,6 +58,18 @@ TEST(EventBus, EachPublishReachesListenerOnce) {
     bus.publish(kEvent);
     bus.publish(kEvent);
     bus.publish(kEvent);
+}
+
+TEST(EventBus, FailureReachesEveryListenerAndNotAsMeasurement) {
+    MockListener first;
+    MockListener second;
+    EXPECT_CALL(first, onClimateMeasured(::testing::_)).Times(0);
+    EXPECT_CALL(second, onClimateMeasured(::testing::_)).Times(0);
+    EXPECT_CALL(first, onClimateReadFailed(Field(&ClimateReadFailed::sampled_at_ms, 4000U)));
+    EXPECT_CALL(second, onClimateReadFailed(Field(&ClimateReadFailed::sampled_at_ms, 4000U)));
+
+    const EventBus<2> bus{{&first, &second}};
+    bus.publish(ClimateReadFailed{.sampled_at_ms = 4000});
 }
 
 int main(int argc, char** argv) {

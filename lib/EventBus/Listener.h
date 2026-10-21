@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ClimateMeasured.h"
+#include "ClimateReadFailed.h"
 
 class Listener {
 public:
@@ -12,4 +13,5 @@ public:
     virtual ~Listener() = default;
 
     virtual void onClimateMeasured(const ClimateMeasured& event) = 0;
+    virtual void onClimateReadFailed(const ClimateReadFailed& event) = 0;
 };

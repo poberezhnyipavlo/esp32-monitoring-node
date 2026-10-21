@@ -3,15 +3,32 @@
 [![CI](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml/badge.svg)](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml)
 
 ESP32 monitoring node: temperature and humidity (DHT11) sent over TCP in
-[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v2, with an RGB status LED;
-an OLED display is planned.
+[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v2.1, with an RGB status LED
+and an OLED display.
 Evolved from [esp32-lab](https://github.com/poberezhnyipavlo/esp32-lab) (stages 07 and 13).
+
+## Metrics
+
+Every 2 s, one sample becomes four lines (names and values from `metric_protocol/MetricNames.h`):
+
+| Name | Value |
+|---|---|
+| `temperature_c` | °C |
+| `humidity_pct` | %RH |
+| `temp_alert` | `-1` too cold / `0` normal / `1` too hot (18…27 °C, 0.5 °C hysteresis) |
+| `dht_ok` | `1` |
+
+When the sensor does not answer, only `dht_ok` = `0` is sent, so the receiver can tell
+"sensor dead" (`dht_ok=0` keeps coming) from "node or network down" (nothing comes).
+
+Samples wait in a queue while the network or the receiver is down and are sent oldest first with their
+age (`age_ms`). The queue holds 1000 lines — about 8 minutes without a connection; after that the oldest
+are dropped.
 
 Metrics: `temperature_c`, `humidity_pct` every 2 s. Samples wait in a queue while the network
 or the receiver is down and are sent oldest first with their age (`age_ms`).
 
-> Status: 14.2 — DHT11 readings sent over TCP; event bus and temperature alerts next.
-> Status: 14.3 — RGB status LED done; OLED next.
+> Status: 14.4 — alert and sensor-health metrics; watchdog and reset reason next.
 
   ## Hardware
 
@@ -131,7 +148,7 @@ Indentation is 4 spaces; arguments that do not fit go one per line.
 
 ## Sizes
 
-`esp32dev`: Flash 967 712 bytes (73.8 %), RAM 73 328 bytes (22.4 %).
+`esp32dev`: Flash 967 900 bytes (73.8 %), RAM 73 336 bytes (22.4 %).
 The OLED libraries add about 44 KB of flash.
 Stack of the `ui` task: 6144 bytes, at least 3836 left free on hardware (with 4096 only 1932 were left,
 too close to the canary after drawing was added).
