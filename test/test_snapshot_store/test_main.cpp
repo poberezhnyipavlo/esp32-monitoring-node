@@ -2,8 +2,8 @@
 
 #include <atomic>
 #include <cstdint>
-#include <thread>
 #include <optional>
+#include <thread>
 
 #include "ClimateMeasured.h"
 #include "SnapshotStore.h"

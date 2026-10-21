@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <optional>
 
+#include "ClimateMeasured.h"
 #include "NetworkState.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
-#include "ClimateMeasured.h"
 
 namespace {
 constexpr StatusConfig kConfig{.sensor_stale_ms = 10000, .blink_period_ms = 1000};

@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <optional>
 
+#include "ClimateMeasured.h"
 #include "NetworkState.h"
 #include "TemperatureAlert.h"
-#include "ClimateMeasured.h"
 
 Status StatusIndicator::status(
     const std::optional<ClimateMeasured>& climate_measured,

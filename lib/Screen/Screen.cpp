@@ -6,10 +6,10 @@
 #include <optional>
 #include <string_view>
 
+#include "ClimateMeasured.h"
 #include "NetworkState.h"
 #include "TemperatureAlert.h"
 #include "Units.h"
-#include "ClimateMeasured.h"
 
 namespace {
 namespace layout {

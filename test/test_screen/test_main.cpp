@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include <string_view>
 #include <optional>
+#include <string_view>
 
+#include "ClimateMeasured.h"
 #include "NetworkState.h"
 #include "Screen.h"
 #include "TemperatureAlert.h"
-#include "ClimateMeasured.h"
 
 namespace {
 
