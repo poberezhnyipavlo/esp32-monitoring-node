@@ -3,12 +3,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string_view>
 
 #include "NetworkState.h"
-#include "SnapshotStore.h"
 #include "TemperatureAlert.h"
 #include "Units.h"
+#include "ClimateMeasured.h"
 
 namespace {
 namespace layout {
@@ -60,17 +61,17 @@ TextItem buildNetwork(NetworkState network_state) {
     return network;
 }
 
-TextItem buildClimate(const Snapshot& snapshot) {
+TextItem buildClimate(const std::optional<ClimateMeasured>& snapshot) {
     TextItem climate{.x = 0, .y = layout::kClimateY, .size = layout::kBigText};
 
-    if (snapshot.has_reading) {
+    if (snapshot) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         const int written = std::snprintf(
             climate.text.data(),
             climate.text.size(),
             "%.1fC %.0f%%",
-            static_cast<double>(snapshot.temperature_c),
-            static_cast<double>(snapshot.humidity_pct)
+            static_cast<double>(snapshot->temperature_c),
+            static_cast<double>(snapshot->humidity_pct)
         );
         if (written < 0) {
             setText(climate, "?");
@@ -82,7 +83,11 @@ TextItem buildClimate(const Snapshot& snapshot) {
     return climate;
 }
 
-TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms) {
+TextItem buildState(
+    const std::optional<ClimateMeasured>& climate_reading,
+    bool sensor_stale,
+    uint32_t now_ms
+) {
     TextItem state{
         .x = 0,
         .y = layout::kStateY,
@@ -90,7 +95,8 @@ TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms
     };
 
     if (sensor_stale) {
-        const uint32_t silent_s = (now_ms - snapshot.last_ok_ms) / units::kMsPerSecond;
+        const uint32_t silent_since_ms = climate_reading ? climate_reading->sampled_at_ms : 0;
+        const uint32_t silent_s = (now_ms - silent_since_ms) / units::kMsPerSecond;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         const int written = std::snprintf(
             state.text.data(),
@@ -101,10 +107,10 @@ TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms
         if (written < 0) {
             setText(state, "?");
         }
-    } else if (!snapshot.has_reading) {
+    } else if (!climate_reading) {
         setText(state, "STARTING");
     } else {
-        setText(state, formatTemperatureLevel(snapshot.level));
+        setText(state, formatTemperatureLevel(climate_reading->level));
     }
 
     return state;
@@ -112,14 +118,14 @@ TextItem buildState(const Snapshot& snapshot, bool sensor_stale, uint32_t now_ms
 }  // namespace
 
 Screen buildScreen(
-    const Snapshot& snapshot,
+    const std::optional<ClimateMeasured>& climate_measured,
     bool sensor_stale,
     NetworkState network_state,
     uint32_t now_ms
 ) {
     return Screen{
-        .climate = buildClimate(snapshot),
-        .state = buildState(snapshot, sensor_stale, now_ms),
+        .climate = buildClimate(climate_measured),
+        .state = buildState(climate_measured, sensor_stale, now_ms),
         .network = buildNetwork(network_state),
     };
 }

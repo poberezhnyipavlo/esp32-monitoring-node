@@ -4,6 +4,7 @@
 #include "ClimateMeasured.h"
 #include "EventBus.h"
 #include "Listener.h"
+#include "TemperatureAlert.h"
 
 namespace {
 using ::testing::AllOf;
@@ -16,7 +17,12 @@ public:
     MOCK_METHOD(void, onClimateMeasured, (const ClimateMeasured& event), (override));
 };
 
-const ClimateMeasured kEvent{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000};
+const ClimateMeasured kEvent{
+    .temperature_c = 24.5F,
+    .humidity_pct = 40.0F,
+    .level = TemperatureLevel::kNormal,
+    .sampled_at_ms = 2000,
+};
 
 }  // namespace
 

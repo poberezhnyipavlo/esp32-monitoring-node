@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
+#include "ClimateMeasured.h"
 #include "NetworkState.h"
-#include "SnapshotStore.h"
 
 enum class StatusColor : uint8_t {
     kOff,
@@ -34,13 +35,16 @@ public:
     explicit StatusIndicator(const StatusConfig& config) : config_(config) {};
 
     [[nodiscard]] Status status(
-        const Snapshot& snapshot,
+        const std::optional<ClimateMeasured>& climate_measured,
         NetworkState network_state,
         uint32_t now_ms
     ) const;
 
     [[nodiscard]] StatusColor colorAt(const Status& status, uint32_t now_ms) const;
-    [[nodiscard]] bool isSensorStale(const Snapshot& snapshot, uint32_t now_ms) const;
+    [[nodiscard]] bool isSensorStale(
+        const std::optional<ClimateMeasured>& climate_measured,
+        uint32_t now_ms
+    ) const;
 
 private:
     StatusConfig config_;

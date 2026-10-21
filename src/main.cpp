@@ -98,7 +98,7 @@ constexpr StatusConfig kConfig{
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
 TemperatureAlert temperature_alert{temperature::kLimits};
-EventBus<2> bus{{&queue_listener, &temperature_alert}};
+EventBus<1> bus{{&queue_listener}};
 
 std::atomic<int32_t> last_rssi{0};
 TaskHandle_t net_task_handle = nullptr;
@@ -196,7 +196,7 @@ void uiTaskMain(void* /*arg*/) {
     Screen last_drawn{};
     for (;;) {
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
-        const Snapshot snapshot = snapshot_store.read();
+        const std::optional<ClimateMeasured> snapshot = snapshot_store.read();
         const NetworkState network = network_state.load();
         const uint32_t now = millis();
         const Status status = status_indicator.status(snapshot, network, now);
@@ -218,9 +218,9 @@ void uiTaskMain(void* /*arg*/) {
                 "[ui] led=%s%s T=%.1f H=%.1f alert=%s net=%s stack_free=%u\n",
                 toString(status.color),
                 status.blinking ? " blink" : "",
-                snapshot.temperature_c,
-                snapshot.humidity_pct,
-                toString(snapshot.level),
+                snapshot ? snapshot->temperature_c : 0.0F,
+                snapshot ? snapshot->humidity_pct : 0.0,
+                snapshot ? toString(snapshot->level) : "none",
                 toString(network).data(),
                 static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr))
             );
@@ -293,23 +293,18 @@ void loop() {
         return;
     }
 
-    bus.publish(
-        ClimateMeasured{
-            .temperature_c = reading->temperature_c,
-            .humidity_pct = reading->humidity_pct,
-            .sampled_at_ms = now,
-        }
-    );
+    const TemperatureLevel level = temperature_alert.update(reading->temperature_c);
 
-    snapshot_store.write(
-        Snapshot{
-            .has_reading = true,
-            .temperature_c = reading->temperature_c,
-            .humidity_pct = reading->humidity_pct,
-            .level = temperature_alert.level(),
-            .last_ok_ms = now,
-        }
-    );
+    const ClimateMeasured measured = ClimateMeasured{
+        .temperature_c = reading->temperature_c,
+        .humidity_pct = reading->humidity_pct,
+        .level = level,
+        .sampled_at_ms = now,
+    };
+
+    bus.publish(measured);
+    snapshot_store.write(measured);
+
     xTaskNotifyGive(ui_task_handle);
 
     const auto stats = queue.stats();
@@ -318,7 +313,7 @@ void loop() {
         "net_stack_free=%u\n",
         reading->temperature_c,
         reading->humidity_pct,
-        toString(temperature_alert.level()),
+        toString(level),
         static_cast<unsigned long>(interval),
         static_cast<unsigned>(stats.size),
         static_cast<unsigned>(sampling::kQueueCapacity),

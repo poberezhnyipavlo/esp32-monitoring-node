@@ -2,30 +2,23 @@
 
 #include <cstdint>
 #include <mutex>
+#include <optional>
 
-#include "TemperatureAlert.h"
-
-struct Snapshot {
-    bool has_reading = false;
-    float temperature_c = 0.0F;
-    float humidity_pct = 0.0F;
-    TemperatureLevel level = TemperatureLevel::kNormal;
-    uint32_t last_ok_ms = 0;
-};
+#include "ClimateMeasured.h"
 
 class SnapshotStore {
 public:
-    void write(const Snapshot& snapshot) {
+    void write(const ClimateMeasured& climate_measured) {
         const std::scoped_lock lock(mutex_);
-        snapshot_ = snapshot;
+        last_ = climate_measured;
     }
 
-    [[nodiscard]] Snapshot read() const {
+    std::optional<ClimateMeasured> read() const {
         const std::scoped_lock lock(mutex_);
-        return snapshot_;
+        return last_;
     }
 
 private:
     mutable std::mutex mutex_;
-    Snapshot snapshot_;
+    std::optional<ClimateMeasured> last_;
 };

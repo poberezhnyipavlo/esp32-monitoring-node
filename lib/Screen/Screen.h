@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include "NetworkState.h"
 #include "SnapshotStore.h"
@@ -26,7 +27,7 @@ struct Screen {
 };
 
 [[nodiscard]] Screen buildScreen(
-    const Snapshot& snapshot,
+    const std::optional<ClimateMeasured>& climate_measured,
     bool sensor_stale,
     NetworkState network_state,
     uint32_t now_ms

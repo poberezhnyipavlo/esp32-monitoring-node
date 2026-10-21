@@ -2,9 +2,6 @@
 
 #include <cstdint>
 
-#include "ClimateMeasured.h"
-#include "Listener.h"
-
 enum class TemperatureLevel : uint8_t {
     kNormal,
     kTooHot,
@@ -22,12 +19,11 @@ constexpr bool isValid(const TemperatureLimits& limits) {
            limits.min_c + limits.hysteresis_c <= limits.max_c - limits.hysteresis_c;
 }
 
-class TemperatureAlert : public Listener {
+class TemperatureAlert {
 public:
     explicit TemperatureAlert(const TemperatureLimits& limits);
 
-    void onClimateMeasured(const ClimateMeasured& event) override;
-
+    [[nodiscard]] TemperatureLevel update(float temperature_c);
     [[nodiscard]] TemperatureLevel level() const { return level_; }
 
 private:

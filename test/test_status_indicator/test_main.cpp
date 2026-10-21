@@ -1,22 +1,22 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <optional>
 
 #include "NetworkState.h"
-#include "SnapshotStore.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
+#include "ClimateMeasured.h"
 
 namespace {
 constexpr StatusConfig kConfig{.sensor_stale_ms = 10000, .blink_period_ms = 1000};
 
-Snapshot reading(uint32_t last_ok_ms, TemperatureLevel level = TemperatureLevel::kNormal) {
-    return Snapshot{
-        .has_reading = true,
+ClimateMeasured reading(uint32_t last_ok_ms, TemperatureLevel level = TemperatureLevel::kNormal) {
+    return ClimateMeasured{
         .temperature_c = 24.0F,
         .humidity_pct = 40.0F,
         .level = level,
-        .last_ok_ms = last_ok_ms
+        .sampled_at_ms = last_ok_ms,
     };
 }
 
@@ -29,7 +29,7 @@ void expectStatus(const Status& status, StatusColor color, bool blinking) {
 TEST(StatusIndicator, StartingIsBlue) {
     const StatusIndicator indicator(kConfig);
     expectStatus(
-        indicator.status(Snapshot{}, NetworkState::kNoWifi, 1000),
+        indicator.status(std::nullopt, NetworkState::kNoWifi, 1000),
         StatusColor::kBlue,
         false
     );
@@ -38,7 +38,7 @@ TEST(StatusIndicator, StartingIsBlue) {
 TEST(StatusIndicator, SensorMissingFromBootIsRedAfterStaleTime) {
     const StatusIndicator indicator(kConfig);
     expectStatus(
-        indicator.status(Snapshot{}, NetworkState::kOnline, 10001),
+        indicator.status(reading(11000), NetworkState::kOnline, 10001),
         StatusColor::kRed,
         false
     );
@@ -60,7 +60,7 @@ TEST(StatusIndicator, StaleOnlyStrictlyAfterThreshold) {
 
 TEST(StatusIndicator, SensorNotWorkingBeatsOldTemperatureAlert) {
     const StatusIndicator indicator(kConfig);
-    const Snapshot old_hot = reading(5000, TemperatureLevel::kTooHot);
+    const ClimateMeasured old_hot = reading(5000, TemperatureLevel::kTooHot);
     expectStatus(indicator.status(old_hot, NetworkState::kOnline, 20000), StatusColor::kRed, false);
 }
 
@@ -167,6 +167,18 @@ TEST(StatusIndicator, SensorStaleOnlyStrictlyAfterThreshold) {
     const StatusIndicator indicator(kConfig);
     EXPECT_FALSE(indicator.isSensorStale(reading(5000), 15000));
     EXPECT_TRUE(indicator.isSensorStale(reading(5000), 15001));
+}
+
+TEST(StatusIndicator, SensorMissingFromBootBecomesStale) {
+    const StatusIndicator indicator(kConfig);
+    EXPECT_EQ(
+        indicator.status(std::nullopt, NetworkState::kOnline, 5000).color,
+        StatusColor::kBlue
+    );
+    EXPECT_EQ(
+        indicator.status(std::nullopt, NetworkState::kOnline, 10001).color,
+        StatusColor::kRed
+    );
 }
 
 int main(int argc, char** argv) {

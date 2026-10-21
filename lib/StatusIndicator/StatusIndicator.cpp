@@ -1,31 +1,32 @@
 #include "StatusIndicator.h"
 
 #include <cstdint>
+#include <optional>
 
 #include "NetworkState.h"
-#include "SnapshotStore.h"
 #include "TemperatureAlert.h"
+#include "ClimateMeasured.h"
 
 Status StatusIndicator::status(
-    const Snapshot& snapshot,
+    const std::optional<ClimateMeasured>& climate_measured,
     NetworkState network_state,
     uint32_t now_ms
 ) const {
-    if (isSensorStale(snapshot, now_ms)) {
+    if (isSensorStale(climate_measured, now_ms)) {
         return Status{
             .color = StatusColor::kRed,
             .blinking = false,
         };
     }
 
-    if (!snapshot.has_reading) {
+    if (!climate_measured) {
         return Status{
             .color = StatusColor::kBlue,
             .blinking = false,
         };
     }
 
-    if (snapshot.level != TemperatureLevel::kNormal) {
+    if (climate_measured.value().level != TemperatureLevel::kNormal) {
         return Status{
             .color = StatusColor::kRed,
             .blinking = true,
@@ -73,8 +74,15 @@ const char* toString(StatusColor color) {
     return "unknown";
 }
 
-bool StatusIndicator::isSensorStale(const Snapshot& snapshot, uint32_t now_ms) const {
-    return now_ms - snapshot.last_ok_ms > config_.sensor_stale_ms;
+bool StatusIndicator::isSensorStale(
+    const std::optional<ClimateMeasured>& climate_measured,
+    uint32_t now_ms
+) const {
+    if (!climate_measured) {
+        return now_ms > config_.sensor_stale_ms;
+    }
+
+    return now_ms - climate_measured->sampled_at_ms > config_.sensor_stale_ms;
 }
 
 RgbChannels toRgb(StatusColor color) {

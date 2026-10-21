@@ -6,6 +6,7 @@
 #include "ClimateMeasured.h"
 #include "QueueListener.h"
 #include "SampleQueue.h"
+#include "TemperatureAlert.h"
 
 namespace {
 constexpr std::size_t kCapacity = 8;
@@ -23,7 +24,12 @@ TEST(QueueListener, OneEventBecomesTemperatureThenHumidity) {
     QueueListener<kCapacity> listener(queue);
 
     listener.onClimateMeasured(
-        ClimateMeasured{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000}
+        ClimateMeasured{
+            .temperature_c = 24.5F,
+            .humidity_pct = 40.0F,
+            .level = TemperatureLevel::kNormal,
+            .sampled_at_ms = 2000,
+        }
     );
 
     ASSERT_EQ(queue.stats().size, 2U);
@@ -45,10 +51,20 @@ TEST(QueueListener, SequenceContinuesAcrossEvents) {
     QueueListener<kCapacity> listener(queue);
 
     listener.onClimateMeasured(
-        ClimateMeasured{.temperature_c = 24.5F, .humidity_pct = 40.0F, .sampled_at_ms = 2000}
+        ClimateMeasured{
+            .temperature_c = 24.5F,
+            .humidity_pct = 40.0F,
+            .level = TemperatureLevel::kNormal,
+            .sampled_at_ms = 2000,
+        }
     );
     listener.onClimateMeasured(
-        ClimateMeasured{.temperature_c = 25.0F, .humidity_pct = 41.0F, .sampled_at_ms = 4000}
+        ClimateMeasured{
+            .temperature_c = 25.0F,
+            .humidity_pct = 41.0F,
+            .level = TemperatureLevel::kNormal,
+            .sampled_at_ms = 4000,
+        }
     );
 
     ASSERT_EQ(queue.stats().size, 4U);

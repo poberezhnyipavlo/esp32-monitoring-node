@@ -1,25 +1,25 @@
 #include <gtest/gtest.h>
 
 #include <string_view>
+#include <optional>
 
 #include "NetworkState.h"
 #include "Screen.h"
-#include "SnapshotStore.h"
 #include "TemperatureAlert.h"
+#include "ClimateMeasured.h"
 
 namespace {
 
-Snapshot reading(float temperature_c, float humidity_pct, TemperatureLevel level) {
-    return Snapshot{
-        .has_reading = true,
+ClimateMeasured reading(float temperature_c, float humidity_pct, TemperatureLevel level) {
+    return ClimateMeasured{
         .temperature_c = temperature_c,
         .humidity_pct = humidity_pct,
         .level = level,
-        .last_ok_ms = 5000,
+        .sampled_at_ms = 5000,
     };
 }
 
-Snapshot normal() { return reading(24.3F, 40.6F, TemperatureLevel::kNormal); }
+ClimateMeasured normal() { return reading(24.3F, 40.6F, TemperatureLevel::kNormal); }
 
 std::string_view text(const TextItem& item) { return item.text.data(); }
 
@@ -31,7 +31,7 @@ TEST(Screen, ClimateWithOneDecimalAndWholePercent) {
 }
 
 TEST(Screen, NoReadingYetShowsDashes) {
-    const Screen screen = buildScreen(Snapshot{}, false, NetworkState::kNoWifi, 1000);
+    const Screen screen = buildScreen(std::nullopt, false, NetworkState::kNoWifi, 1000);
     EXPECT_EQ(text(screen.climate), "--.-C --%");
     EXPECT_EQ(text(screen.state), "STARTING");
 }
@@ -41,8 +41,8 @@ TEST(Screen, NormalTemperatureIsOk) {
 }
 
 TEST(Screen, TemperatureAlerts) {
-    const Snapshot hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
-    const Snapshot cold = reading(17.0F, 50.0F, TemperatureLevel::kTooCold);
+    const ClimateMeasured hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
+    const ClimateMeasured cold = reading(17.0F, 50.0F, TemperatureLevel::kTooCold);
     EXPECT_EQ(text(buildScreen(hot, false, NetworkState::kOnline, 6000).state), "TOO HOT");
     EXPECT_EQ(text(buildScreen(cold, false, NetworkState::kOnline, 6000).state), "TOO COLD");
 }
@@ -58,7 +58,7 @@ TEST(Screen, StaleSensorKeepsLastKnownClimate) {
 }
 
 TEST(Screen, SensorFailBeatsTemperatureAlert) {
-    const Snapshot old_hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
+    const ClimateMeasured old_hot = reading(28.0F, 50.0F, TemperatureLevel::kTooHot);
     EXPECT_EQ(
         text(buildScreen(old_hot, true, NetworkState::kOnline, 17000).state),
         "SENSOR FAIL 12s"
@@ -101,6 +101,13 @@ TEST(Screen, ChangeIsVisibleInComparison) {
     EXPECT_EQ(before, buildScreen(normal(), true, NetworkState::kOnline, 17999));
     EXPECT_NE(before, buildScreen(normal(), true, NetworkState::kOnline, 18000));
     EXPECT_NE(before, buildScreen(normal(), true, NetworkState::kNoWifi, 17000));
+}
+
+TEST(Screen, SensorMissingFromBootBecomesStale) {
+    EXPECT_EQ(
+        text(buildScreen(std::nullopt, true, NetworkState::kOnline, 12000).state),
+        "SENSOR FAIL 12s"
+    );
 }
 
 int main(int argc, char** argv) {
