@@ -26,6 +26,8 @@ public:
     void log(logproto::Level level, std::string_view src, std::string_view text, uint32_t now_ms) {
         LogEntry entry{
             .level = level,
+            .src = {},
+            .text = {},
             .seq = 0,  // assigned under the lock
             .sampled_at_ms = now_ms,
         };
