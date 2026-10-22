@@ -1,12 +1,10 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <mutex>
-#include <optional>
 #include <string_view>
 
-#include "RingBuffer.h"
+#include "SharedQueue.h"
 
 struct Sample {
     std::string_view name;
@@ -16,38 +14,4 @@ struct Sample {
 };
 
 template <size_t N>
-class SampleQueue {
-public:
-    using Entry = typename RingBuffer<Sample, N>::Entry;
-
-    struct Stats {
-        size_t size;
-        uint32_t dropped;
-    };
-
-    bool push(const Sample& s) {
-        const std::scoped_lock lock(mutex_);
-        return buffer_.push(s);
-    }
-
-    [[nodiscard]] std::optional<Entry> front() const {
-        const std::scoped_lock lock(mutex_);
-        return buffer_.front();
-    }
-
-    bool popFront(uint32_t id) {
-        const std::scoped_lock lock(mutex_);
-        return buffer_.popFront(id);
-    }
-
-    [[nodiscard]] Stats stats() const {
-        const std::scoped_lock lock(mutex_);
-        return Stats{buffer_.size(), buffer_.dropped()};
-    }
-
-    [[nodiscard]] static constexpr size_t capacity() { return N; }
-
-private:
-    mutable std::mutex mutex_;
-    RingBuffer<Sample, N> buffer_;
-};
+using  SampleQueue = SharedQueue<Sample, N>;
