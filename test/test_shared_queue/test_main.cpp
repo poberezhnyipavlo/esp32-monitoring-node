@@ -6,10 +6,10 @@
 #include "SharedQueue.h"
 
 namespace {
-    struct Note {
-        std::array<char, 8> text;
-        uint32_t seq;
-    };
+struct Note {
+    std::array<char, 8> text;
+    uint32_t seq;
+};
 }  // namespace
 
 TEST(SharedQueue, WorksWithAnyItemType) {

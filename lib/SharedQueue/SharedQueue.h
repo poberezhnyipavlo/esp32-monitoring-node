@@ -7,7 +7,7 @@
 
 #include "RingBuffer.h"
 
-template <typename  T, std::size_t N>
+template <typename T, std::size_t N>
 class SharedQueue {
 public:
     using Entry = typename RingBuffer<T, N>::Entry;
@@ -37,7 +37,8 @@ public:
         return Stats{buffer_.size(), buffer_.dropped()};
     }
 
-    [[nodiscard]] static  constexpr  std::size_t capacity() { return N; }
+    [[nodiscard]] static constexpr std::size_t capacity() { return N; }
+
 private:
     mutable std::mutex mutex_;
     RingBuffer<T, N> buffer_;

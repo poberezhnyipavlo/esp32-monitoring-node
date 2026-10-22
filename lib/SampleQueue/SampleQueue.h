@@ -14,4 +14,4 @@ struct Sample {
 };
 
 template <size_t N>
-using  SampleQueue = SharedQueue<Sample, N>;
+using SampleQueue = SharedQueue<Sample, N>;
