@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstdio>
 #include <string_view>
 #include <utility>
