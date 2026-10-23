@@ -122,6 +122,20 @@ TEST(LogSender, SkipsEntryThatCannotBeWritten) {
     EXPECT_EQ(queue.stats().size, 0U);  // a bad entry must not block the queue forever
 }
 
+TEST(LogSender, EntryNewerThanPassTimeWaitsForNextPass) {
+    SharedQueue<LogEntry, kCapacity> queue;
+    Logger<kCapacity> logger(queue);
+    logger.log(Level::kInfo, "app", "later", 1000);
+    RecordingSink sink;
+    LogSender<kCapacity> sender(queue, sink);
+
+    EXPECT_EQ(sender.sendPending(kDev, kBoot, 900).sent, 0U);
+    EXPECT_EQ(queue.stats().size, 1U);
+    EXPECT_EQ(sender.sendPending(kDev, kBoot, 1100).sent, 1U);
+    ASSERT_EQ(sink.lines().size(), 1U);
+    EXPECT_NE(sink.lines()[0].find(" age_ms=100 "), std::string::npos);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

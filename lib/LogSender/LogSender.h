@@ -8,6 +8,7 @@
 #include "LogProtocol.h"
 #include "Logger.h"
 #include "SharedQueue.h"
+#include "Units.h"
 
 struct LogSendResult {
     uint32_t sent = 0;
@@ -23,6 +24,9 @@ public:
     [[nodiscard]] LogSendResult sendPending(std::string_view dev, uint32_t boot, uint32_t now_ms) {
         LogSendResult result;
         while (const auto entry = queue_.front()) {
+            if (units::isAfter(entry->item.sampled_at_ms, now_ms)) {
+                break;
+            }
             const logproto::Record record{
                 .dev = dev,
                 .boot = boot,

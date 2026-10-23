@@ -128,6 +128,34 @@ TEST(QueueSender, SkipsInvalidSampleInsteadOfBlocking) {
     EXPECT_EQ(result.sent, 1U);
 }
 
+TEST(QueueSender, SampleNewerThanPassTimeWaitsForNextPass) {
+    SampleQueue<kCapacity> queue;
+    queue.push(Sample{.name = "uptime_s", .value = 1.0, .seq = 0, .sampled_at_ms = 1000});
+    MockSink sink;
+    EXPECT_CALL(sink, send(HasSubstr("age_ms=100 "), _)).WillOnce(Return(true));
+    QueueSender<kCapacity> sender(queue, sink);
+
+    // The pass started at 900; the sample was queued at 1000 by the other task meanwhile.
+    const SendResult early = sender.sendPending(kOrigin, 900);
+    EXPECT_EQ(early.sent, 0U);
+    EXPECT_FALSE(early.failed);
+    EXPECT_EQ(queue.stats().size, 1U);
+
+    const SendResult next = sender.sendPending(kOrigin, 1100);
+    EXPECT_EQ(next.sent, 1U);
+    EXPECT_EQ(next.max_age_ms, 100U);
+}
+
+TEST(QueueSender, AgeAcrossMillisOverflow) {
+    SampleQueue<kCapacity> queue;
+    queue.push(Sample{.name = "uptime_s", .value = 1.0, .seq = 0, .sampled_at_ms = UINT32_MAX - 9});
+    MockSink sink;
+    EXPECT_CALL(sink, send(HasSubstr("age_ms=20 "), _)).WillOnce(Return(true));
+    QueueSender<kCapacity> sender(queue, sink);
+
+    EXPECT_EQ(sender.sendPending(kOrigin, 10).sent, 1U);  // 10 ms before the wrap + 10 after
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();

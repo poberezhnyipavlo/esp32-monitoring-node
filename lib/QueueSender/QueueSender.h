@@ -8,6 +8,7 @@
 
 #include "ByteSink.h"
 #include "SampleQueue.h"
+#include "Units.h"
 
 struct SendResult {
     uint32_t sent = 0;
@@ -25,6 +26,9 @@ public:
         SendResult result;
         while (const auto entry = queue_.front()) {
             const Sample& sample = entry->item;
+            if (units::isAfter(sample.sampled_at_ms, now_ms)) {
+                break;
+            }
             const uint32_t age_ms = now_ms - sample.sampled_at_ms;
             std::array<char, metric::k_max_message_len> buf{};
             const std::size_t len = metric::serialize(
