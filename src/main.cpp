@@ -8,6 +8,8 @@
 #include <atomic>
 
 #include "EventBus.h"
+#include "LogSender.h"
+#include "Logger.h"
 #include "NetworkState.h"
 #include "QueueListener.h"
 #include "QueueSender.h"
@@ -46,6 +48,11 @@ namespace sampling {
 constexpr uint32_t kPeriodMs = 2000;
 constexpr size_t kQueueCapacity = 1000;
 }  // namespace sampling
+
+namespace logs {
+constexpr uint16_t kPort = 9003;
+constexpr std::size_t kQueueCapacity = 32;
+}  // namespace logs
 
 namespace tcp {
 constexpr int32_t kConnectTimeoutMs = 3000;
@@ -100,6 +107,9 @@ QueueListener<sampling::kQueueCapacity> queue_listener{queue};
 TemperatureAlert temperature_alert{temperature::kLimits};
 EventBus<1> bus{{&queue_listener}};
 
+SharedQueue<LogEntry, logs::kQueueCapacity> log_queue;
+Logger<logs::kQueueCapacity> logger{log_queue};
+
 std::atomic<int32_t> last_rssi{0};
 TaskHandle_t net_task_handle = nullptr;
 DhtSensor dht{pins::kDht, DHT_SENSOR_TYPE};
@@ -137,12 +147,24 @@ public:
         wifi_.update(now);
         if (!wifi_.isConnected()) {
             tcp_.close();
+            log_tcp_.close();
             network_state = NetworkState::kNoWifi;
             last_rssi = 0;
             return;
         }
         last_rssi = wifi_.rssi();
         tcp_.update(now);
+        log_tcp_.update(now);
+        if (log_tcp_.isOpen()) {
+            const LogSendResult logs_result =
+                log_sender_.sendPending(dev_.data(), origin_.boot, millis());
+            if (logs_result.sent > 0) {
+                Serial.printf(
+                    "[net] logs sent %lu\n",
+                    static_cast<unsigned long>(logs_result.sent)
+                );
+            }
+        }
         network_state = tcp_.isOpen() ? NetworkState::kOnline : NetworkState::kNoReceiver;
         if (!tcp_.isOpen()) {
             return;
@@ -177,7 +199,14 @@ private:
         tcp::kConnectTimeoutMs,
         RetryTimer{tcp::kRetryBaseMs, tcp::kRetryMaxMs, tcp::kStableMs}
     };
+    TcpLink log_tcp_{
+        kMonitorHost,
+        logs::kPort,
+        tcp::kConnectTimeoutMs,
+        RetryTimer{tcp::kRetryBaseMs, tcp::kRetryMaxMs, tcp::kStableMs}
+    };
     QueueSender<sampling::kQueueCapacity> sender_{queue, tcp_};
+    LogSender<logs::kQueueCapacity> log_sender_{log_queue, log_tcp_};
     std::array<char, metric::k_dev_len + 1> dev_{};
     metric::Origin origin_{};
 };
@@ -275,6 +304,8 @@ void setup() {
         static_cast<unsigned long>(sampling::kPeriodMs),
         static_cast<unsigned>(sampling::kQueueCapacity)
     );
+
+    logger.log(logproto::Level::kInfo, "boot", "started", millis());
 }
 
 void loop() {
