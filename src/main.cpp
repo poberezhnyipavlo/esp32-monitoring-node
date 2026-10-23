@@ -26,6 +26,7 @@
 #include "drivers/RgbLed.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
+#include "SensorWatch.h"
 
 #ifdef WOKWI_WIFI
 constexpr const char* kWifiSsid = "Wokwi-GUEST";
@@ -44,6 +45,10 @@ constexpr int32_t kWifiChannel = 0;
 #endif
 
 namespace {
+namespace sensor {
+constexpr uint32_t kStaleMs = 10000;
+} // namespace sensor
+
 namespace sampling {
 constexpr uint32_t kPeriodMs = 2000;
 constexpr size_t kQueueCapacity = 1000;
@@ -92,12 +97,11 @@ constexpr uint32_t kStackBytes = 6144;
 constexpr UBaseType_t kPriority = 1;
 constexpr BaseType_t kCore = 1;
 constexpr uint32_t kTicksMs = 250;
-constexpr uint32_t kSensorStaleMs = 10000;
 }  // namespace ui_task
 
 namespace status_led {
 constexpr StatusConfig kConfig{
-    .sensor_stale_ms = ui_task::kSensorStaleMs,
+    .sensor_stale_ms = sensor::kStaleMs,
     .blink_period_ms = units::kMsPerSecond,
 };
 }
@@ -105,10 +109,14 @@ constexpr StatusConfig kConfig{
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
 TemperatureAlert temperature_alert{temperature::kLimits};
-EventBus<1> bus{{&queue_listener}};
+
 
 SharedQueue<LogEntry, logs::kQueueCapacity> log_queue;
 Logger<logs::kQueueCapacity> logger{log_queue};
+
+SensorWatch<logs::kQueueCapacity> sensor_watch{logger, sensor::kStaleMs};
+
+EventBus<2> bus{{&queue_listener, &sensor_watch}};
 
 std::atomic<int32_t> last_rssi{0};
 TaskHandle_t net_task_handle = nullptr;
