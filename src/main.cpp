@@ -3,6 +3,7 @@
 #include <esp_mac.h>
 #include <esp_random.h>
 #include <esp_system.h>
+#include <esp_task_wdt.h>
 #include <metric_protocol/MetricProtocol.h>
 
 #include <array>
@@ -106,6 +107,13 @@ constexpr StatusConfig kConfig{
     .blink_period_ms = units::kMsPerSecond,
 };
 }
+
+namespace watchdog {
+constexpr uint32_t kTimeoutMs = 15000;
+// Longest legitimate blocking per pass: net connects two TcpLinks, loop sleeps between samples.
+static_assert(kTimeoutMs > 2 * static_cast<uint32_t>(tcp::kConnectTimeoutMs) + units::kMsPerSecond);
+static_assert(kTimeoutMs > sampling::kPeriodMs + units::kMsPerSecond);
+}  // namespace watchdog
 
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
@@ -219,19 +227,41 @@ private:
     metric::Origin origin_{};
 };
 
+void configureWatchdog() {
+    const esp_task_wdt_config_t config{
+        .timeout_ms = watchdog::kTimeoutMs,
+        .idle_core_mask = 1U << 0,
+        .trigger_panic = true,
+    };
+
+    if (esp_task_wdt_reconfigure(&config) != ESP_OK) {
+        Serial.println("[app] cannot configure task watchdog");
+    }
+}
+
+void watchCurrentTask(const char* name) {
+    if (esp_task_wdt_add(nullptr) != ESP_OK) {
+        Serial.printf("[app] cannot watch task %s\n", name);
+    }
+}
+
 void netTaskMain(void* /*arg*/) {
+    watchCurrentTask("net");
     static Uplink uplink;
     uplink.begin();
     for (;;) {
+        esp_task_wdt_reset();
         uplink.loopOnce();
         vTaskDelay(pdMS_TO_TICKS(net_task::kIdleMs));
     }
 }
 
 void uiTaskMain(void* /*arg*/) {
+    watchCurrentTask("ui");
     Status last_logged{.color = StatusColor::kOff, .blinking = false};
     Screen last_drawn{};
     for (;;) {
+        esp_task_wdt_reset();
         const uint32_t notified = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ui_task::kTicksMs));
         const std::optional<ClimateMeasured> snapshot = snapshot_store.read();
         const NetworkState network = network_state.load();
@@ -280,13 +310,13 @@ ResetInfo describeReset(esp_reset_reason_t reason) {
         case ESP_RST_SW:
             return {.level = logproto::Level::kInfo, .name = "software"};
         case ESP_RST_DEEPSLEEP:
-            return {logproto::Level::kInfo, "deep_sleep"};
+            return {.level = logproto::Level::kInfo, .name = "deep_sleep"};
         case ESP_RST_PANIC:
             return {.level = logproto::Level::kError, .name = "panic"};
         case ESP_RST_INT_WDT:
-            return {.level = logproto::Level::kError, .name = "interrupt_watching"};
+            return {.level = logproto::Level::kError, .name = "interrupt_watchdog"};
         case ESP_RST_TASK_WDT:
-            return {.level = logproto::Level::kError, .name = "task_watching"};
+            return {.level = logproto::Level::kError, .name = "task_watchdog"};
         case ESP_RST_WDT:
             return {.level = logproto::Level::kError, .name = "watchdog"};
         case ESP_RST_BROWNOUT:
@@ -308,6 +338,9 @@ void setup() {
     oled_ready = oled.begin();
 
     Serial.println(oled_ready ? "[app] oled found" : "[app] oled not found");
+
+    configureWatchdog();
+    watchCurrentTask("loop");
 
     const BaseType_t created = xTaskCreatePinnedToCore(
         netTaskMain,
@@ -352,6 +385,8 @@ void setup() {
 }
 
 void loop() {
+    esp_task_wdt_reset();
+
     static TickType_t wake = xTaskGetTickCount();
     static uint32_t last_sample_ms = 0;
 
