@@ -13,16 +13,18 @@
 #include "Logger.h"
 #include "Units.h"
 
-template<std::size_t N>
+template <std::size_t N>
 class SensorWatch : public Listener {
 public:
-    SensorWatch(Logger<N> & logger, uint32_t stale_ms) : logger_(logger), stale_ms_(stale_ms) {}
+    SensorWatch(Logger<N>& logger, uint32_t stale_ms) : logger_(logger), stale_ms_(stale_ms) {}
 
-    void onClimateMeasured(const ClimateMeasured &event) override {
+    void onClimateMeasured(const ClimateMeasured& event) override {
         if (lost_) {
-            const uint32_t silent_s = (event.sampled_at_ms - last_ok_ms_.value_or(0)) / units::kMsPerSecond;
+            const uint32_t silent_s =
+                (event.sampled_at_ms - last_ok_ms_.value_or(0)) / units::kMsPerSecond;
             std::array<char, logproto::kMaxTextLen> text{};
 
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
             const int written = std::snprintf(
                 text.data(),
                 text.size(),
@@ -42,14 +44,19 @@ public:
         last_ok_ms_ = event.sampled_at_ms;
     }
 
-    void onClimateReadFailed(const ClimateReadFailed &event) override {
+    void onClimateReadFailed(const ClimateReadFailed& event) override {
         if (lost_) {
             return;
         }
 
         const uint32_t silent_ms = event.sampled_at_ms - last_ok_ms_.value_or(0);
         if (silent_ms > stale_ms_) {
-            logger_.log(logproto::Level::kWarn, "dht", "sensor stopped answering", event.sampled_at_ms);
+            logger_.log(
+                logproto::Level::kWarn,
+                "dht",
+                "sensor stopped answering",
+                event.sampled_at_ms
+            );
             lost_ = true;
         }
     }

@@ -30,44 +30,50 @@ ClimateMeasured measured(uint32_t at_ms) {
 
 ClimateReadFailed failed(uint32_t at_ms) { return ClimateReadFailed{.sampled_at_ms = at_ms}; }
 
-struct Fixture {
-    SharedQueue<LogEntry, kCapacity> queue;
-    Logger<kCapacity> logger{queue};
-    SensorWatch<kCapacity> watch{logger, kStaleMs};
+class Fixture {
+public:
+    void measuredAt(uint32_t at_ms) { watch_.onClimateMeasured(measured(at_ms)); }
+    void failedAt(uint32_t at_ms) { watch_.onClimateReadFailed(failed(at_ms)); }
+    [[nodiscard]] std::size_t size() const { return queue_.stats().size; }
 
     LogEntry popOldest() {
-        const auto entry = queue.front();
+        const auto entry = queue_.front();
         EXPECT_TRUE(entry.has_value());
-        queue.popFront(entry->id);
+        queue_.popFront(entry->id);
         return entry->item;
     }
+
+private:
+    SharedQueue<LogEntry, kCapacity> queue_;
+    Logger<kCapacity> logger_{queue_};
+    SensorWatch<kCapacity> watch_{logger_, kStaleMs};
 };
 
 }  // namespace
 
 TEST(SensorWatch, NormalReadingsLogNothing) {
     Fixture f;
-    f.watch.onClimateMeasured(measured(2000));
-    f.watch.onClimateMeasured(measured(4000));
-    EXPECT_EQ(f.queue.stats().size, 0U);
+    f.measuredAt(2000);
+    f.measuredAt(4000);
+    EXPECT_EQ(f.size(), 0U);
 }
 
 TEST(SensorWatch, ShortGapIsNotLost) {
     Fixture f;
-    f.watch.onClimateMeasured(measured(2000));
-    f.watch.onClimateReadFailed(failed(4000));
-    f.watch.onClimateReadFailed(failed(2000 + kStaleMs));  // exactly the threshold: not yet
-    EXPECT_EQ(f.queue.stats().size, 0U);
+    f.measuredAt(2000);
+    f.failedAt(4000);
+    f.failedAt(2000 + kStaleMs);  // exactly the threshold: not yet
+    EXPECT_EQ(f.size(), 0U);
 }
 
 TEST(SensorWatch, LostOnceAfterThreshold) {
     Fixture f;
-    f.watch.onClimateMeasured(measured(2000));
-    f.watch.onClimateReadFailed(failed(2001 + kStaleMs));
-    f.watch.onClimateReadFailed(failed(14000));
-    f.watch.onClimateReadFailed(failed(16000));
+    f.measuredAt(2000);
+    f.failedAt(2001 + kStaleMs);
+    f.failedAt(14000);
+    f.failedAt(16000);
 
-    ASSERT_EQ(f.queue.stats().size, 1U);
+    ASSERT_EQ(f.size(), 1U);
     const LogEntry entry = f.popOldest();
     EXPECT_EQ(entry.level, Level::kWarn);
     EXPECT_EQ(std::string_view(entry.src.data()), "dht");
@@ -77,11 +83,11 @@ TEST(SensorWatch, LostOnceAfterThreshold) {
 
 TEST(SensorWatch, BackAfterLostTellsHowLongItWasSilent) {
     Fixture f;
-    f.watch.onClimateMeasured(measured(2000));
-    f.watch.onClimateReadFailed(failed(14000));
-    f.watch.onClimateMeasured(measured(25000));
+    f.measuredAt(2000);
+    f.failedAt(14000);
+    f.measuredAt(25000);
 
-    ASSERT_EQ(f.queue.stats().size, 2U);
+    ASSERT_EQ(f.size(), 2U);
     f.popOldest();
     const LogEntry back = f.popOldest();
     EXPECT_EQ(back.level, Level::kInfo);
@@ -90,20 +96,20 @@ TEST(SensorWatch, BackAfterLostTellsHowLongItWasSilent) {
 
 TEST(SensorWatch, MissingFromBootIsLostAfterThreshold) {
     Fixture f;
-    f.watch.onClimateReadFailed(failed(2000));
-    f.watch.onClimateReadFailed(failed(kStaleMs));
-    EXPECT_EQ(f.queue.stats().size, 0U);
-    f.watch.onClimateReadFailed(failed(kStaleMs + 2000));
-    EXPECT_EQ(f.queue.stats().size, 1U);
+    f.failedAt(2000);
+    f.failedAt(kStaleMs);
+    EXPECT_EQ(f.size(), 0U);
+    f.failedAt(kStaleMs + 2000);
+    EXPECT_EQ(f.size(), 1U);
 }
 
 TEST(SensorWatch, CanBeLostAgainAfterComingBack) {
     Fixture f;
-    f.watch.onClimateMeasured(measured(2000));
-    f.watch.onClimateReadFailed(failed(14000));   // lost
-    f.watch.onClimateMeasured(measured(16000));   // back
-    f.watch.onClimateReadFailed(failed(28000));   // lost again
-    EXPECT_EQ(f.queue.stats().size, 3U);
+    f.measuredAt(2000);
+    f.failedAt(14000);    // lost
+    f.measuredAt(16000);  // back
+    f.failedAt(28000);    // lost again
+    EXPECT_EQ(f.size(), 3U);
 }
 
 int main(int argc, char** argv) {

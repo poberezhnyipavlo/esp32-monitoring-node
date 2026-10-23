@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_mac.h>
 #include <esp_random.h>
+#include <esp_system.h>
 #include <metric_protocol/MetricProtocol.h>
 
 #include <array>
@@ -16,6 +17,7 @@
 #include "RetryTimer.h"
 #include "SampleQueue.h"
 #include "Screen.h"
+#include "SensorWatch.h"
 #include "SnapshotStore.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
@@ -26,7 +28,6 @@
 #include "drivers/RgbLed.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
-#include "SensorWatch.h"
 
 #ifdef WOKWI_WIFI
 constexpr const char* kWifiSsid = "Wokwi-GUEST";
@@ -47,7 +48,7 @@ constexpr int32_t kWifiChannel = 0;
 namespace {
 namespace sensor {
 constexpr uint32_t kStaleMs = 10000;
-} // namespace sensor
+}  // namespace sensor
 
 namespace sampling {
 constexpr uint32_t kPeriodMs = 2000;
@@ -109,7 +110,6 @@ constexpr StatusConfig kConfig{
 SampleQueue<sampling::kQueueCapacity> queue;
 QueueListener<sampling::kQueueCapacity> queue_listener{queue};
 TemperatureAlert temperature_alert{temperature::kLimits};
-
 
 SharedQueue<LogEntry, logs::kQueueCapacity> log_queue;
 Logger<logs::kQueueCapacity> logger{log_queue};
@@ -265,6 +265,36 @@ void uiTaskMain(void* /*arg*/) {
         last_logged = status;
     }
 }
+
+struct ResetInfo {
+    logproto::Level level;
+    const char* name;
+};
+
+ResetInfo describeReset(esp_reset_reason_t reason) {
+    switch (reason) {
+        case ESP_RST_POWERON:
+            return {.level = logproto::Level::kInfo, .name = "power_on"};
+        case ESP_RST_EXT:
+            return {.level = logproto::Level::kInfo, .name = "external_pin"};
+        case ESP_RST_SW:
+            return {.level = logproto::Level::kInfo, .name = "software"};
+        case ESP_RST_DEEPSLEEP:
+            return {logproto::Level::kInfo, "deep_sleep"};
+        case ESP_RST_PANIC:
+            return {.level = logproto::Level::kError, .name = "panic"};
+        case ESP_RST_INT_WDT:
+            return {.level = logproto::Level::kError, .name = "interrupt_watching"};
+        case ESP_RST_TASK_WDT:
+            return {.level = logproto::Level::kError, .name = "task_watching"};
+        case ESP_RST_WDT:
+            return {.level = logproto::Level::kError, .name = "watchdog"};
+        case ESP_RST_BROWNOUT:
+            return {.level = logproto::Level::kError, .name = "brownout"};
+        default:
+            return {.level = logproto::Level::kWarn, .name = "unknown"};
+    }
+}
 }  // namespace
 
 void setup() {
@@ -313,7 +343,12 @@ void setup() {
         static_cast<unsigned>(sampling::kQueueCapacity)
     );
 
-    logger.log(logproto::Level::kInfo, "boot", "started", millis());
+    const ResetInfo reset = describeReset(esp_reset_reason());
+    std::array<char, logproto::kMaxTextLen> text{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+    std::snprintf(text.data(), text.size(), "started, reason=%s", reset.name);
+    logger.log(reset.level, "boot", text.data(), millis());
+    Serial.printf("[app] reset reason: %s\n", reset.name);
 }
 
 void loop() {
