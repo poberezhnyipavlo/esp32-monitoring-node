@@ -31,6 +31,10 @@
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
 
+#ifdef FAULT_INJECTION
+#include "FaultCommand.h"
+#endif
+
 #ifdef WOKWI_WIFI
 constexpr const char* kWifiSsid = "Wokwi-GUEST";
 constexpr const char* kWifiPassword = "";
@@ -256,6 +260,50 @@ void watchCurrentTask(const char* name) {
     }
 }
 
+#ifdef FAULT_INJECTION
+void suspendTask(TaskHandle_t task, const char* name) {
+    if (task == nullptr) {
+        Serial.printf("[fault] no %s task\n", name);
+        return;
+    }
+    Serial.printf("[fault] suspending %s\n", name);
+    vTaskSuspend(task);
+}
+
+void injectFault(Fault fault) {
+    switch (fault) {
+        case Fault::kPanic:
+            Serial.println("[fault] panic");
+            Serial.flush();
+            abort();
+        case Fault::kHangLoop:
+            Serial.println("[fault] suspending loop");
+            vTaskSuspend(nullptr);  // nullptr = the calling task (loopTask)
+            break;
+        case Fault::kHangNet:
+            suspendTask(net_task_handle, "net");
+            break;
+        case Fault::kHangUi:
+            suspendTask(ui_task_handle, "ui");
+            break;
+    }
+}
+
+void pollFaultCommand() {
+    if (Serial.available() == 0) {
+        return;
+    }
+
+    const String line = Serial.readStringUntil('\n');
+    const std::optional<Fault> fault = parseFault(std::string_view(line.c_str(), line.length()));
+    if (!fault) {
+        Serial.printf("[fault] unknown command: %s\n", line.c_str());
+        return;
+    }
+    injectFault(*fault);
+}
+#endif
+
 void netTaskMain(void* /*arg*/) {
     watchCurrentTask("net");
     static Uplink uplink;
@@ -430,6 +478,10 @@ void loop() {
     static uint32_t last_sample_ms = 0;
 
     vTaskDelayUntil(&wake, pdMS_TO_TICKS(sampling::kPeriodMs));
+
+#ifdef FAULT_INJECTION
+    pollFaultCommand();
+#endif
 
     const uint32_t now = millis();
     const uint32_t interval = last_sample_ms == 0 ? 0 : now - last_sample_ms;
