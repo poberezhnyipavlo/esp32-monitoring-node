@@ -25,7 +25,53 @@ Samples wait in a queue while the network or the receiver is down and are sent o
 age (`age_ms`). The queue holds 1000 lines — about 8 minutes without a connection; after that the oldest
 are dropped.
 
-> Status: 14.4 — alert and sensor-health metrics; watchdog and reset reason next.
+> Status: 14.5 — black box: node events on a second channel, watchdog, reset reason and breadcrumbs.
+
+## Logs (black box)
+
+Node events go to a second TCP port (9003), separate from metrics: metrics are numbers for charts,
+logs are rare text events for a person. Each event is one line:
+
+```
+ver=1 dev=20:9b:a9:61:15:6c boot=e1ff8983 seq=0 age_ms=2843 level=error src=boot text=started, reason=task_watchdog boot=2
+```
+
+| Field | Meaning |
+|---|---|
+| `boot` | random id of this run, the same as in metrics |
+| `seq` | order of events within one run, from 0 |
+| `age_ms` | how long the event waited in the queue before sending |
+| `level` | `info` / `warn` / `error` |
+| `src` | who reports: `boot`, `dht` |
+| `text` | free text, the rest of the line |
+
+Events:
+
+| `src` | `text` | When |
+|---|---|---|
+| `boot` | `started, reason=<reason> boot=<n>` | every start; `error` after a crash (`panic`, `task_watchdog`, `brownout`, …) |
+| `boot` | `previous boot ended at loop=<step> net=<step> ui=<step>` | after a reset that kept RTC memory: what each task was waiting for |
+| `dht` | `sensor stopped answering` (`warn`) | no reading for more than 10 s, once per outage |
+| `dht` | `sensor answers again after <n> s` | the first reading after an outage |
+
+How the node protects itself:
+
+- **Task watchdog.** The `loop`, `net` and `ui` tasks must report every 15 s, otherwise the node restarts.
+  15 s is above the longest legitimate wait: two TCP connects of 3 s each.
+- **Breadcrumbs.** Before a call that can block (TCP connect or send, DHT read, OLED draw) a task writes
+  its step into RTC memory, which survives a reset but not a power loss. A magic number tells real data
+  from garbage after power on. A watchdog backtrace only shows what the CPU was doing (usually the idle
+  task), the breadcrumbs show where the hung task was.
+- **Boot counter.** `boot=<n>` counts starts since power on: `boot=3` means the node restarted itself twice.
+
+Receive logs on the computer:
+
+```bash
+socat -u TCP-LISTEN:9003,reuseaddr,fork STDOUT
+```
+
+`nc -lk 9003` is not enough: after the board resets, the old connection stays half-open, `nc` keeps
+serving it, and the first lines of the new run are lost.
 
 ## Hardware
 
@@ -73,15 +119,29 @@ The screenshot is from Wokwi, where no receiver listens, hence `TCP:no`.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt          # pinned clang-format, clang-tidy, PlatformIO
 
-pio test -e native                           # 83 unit tests on the host
+pio test -e native                           # 124 unit tests on the host
 scripts/format.sh                            # check formatting (--fix to rewrite)
 scripts/tidy.sh                              # static analysis of lib/ and test/
 
 cp include/secrets.example.h include/secrets.h   # then fill in Wi-Fi and receiver
 pio run                                      # firmware for the board
+pio run -e faults -t upload -t monitor       # firmware that crashes on purpose, see below
 
 pio run -e wokwi && wokwi-cli --timeout 45000 --scenario test.scenario.yaml   # needs WOKWI_CLI_TOKEN
 ```
+### Fault injection
+
+The `faults` env adds Serial commands that break the node on purpose, to check the black box.
+The code is behind `#ifdef FAULT_INJECTION`, so the normal firmware does not contain it.
+Type a command in the serial monitor and press Enter:
+
+| Command | Expected |
+|---|---|
+| `panic` | `abort()`, decoded backtrace, then `reason=panic` |
+| `hang loop` / `hang net` / `hang ui` | the task is suspended; in 15 s the watchdog names it and restarts the node, `reason=task_watchdog` |
+
+`hang` uses `vTaskSuspend`, so it tests the watchdog, not a real hang inside a call:
+the breadcrumbs usually show `idle`.
 
 ## CI
 
@@ -89,7 +149,7 @@ Five jobs on every push to `main` and every pull request (documentation-only cha
 
 | Job | What it checks | Catches |
 |---|---|---|
-| test | 83 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
+| test | 124 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
 | format | clang-format 21.1.8 | style drift |
 | tidy | clang-tidy 21.1.6 on `lib/` and `test/` | bug-prone code, naming, magic numbers, missing includes |
 | build | `esp32dev` and `wokwi` firmware builds | firmware that does not compile |
@@ -145,7 +205,7 @@ Indentation is 4 spaces; arguments that do not fit go one per line.
 
 ## Sizes
 
-`esp32dev`: Flash 967 900 bytes (73.8 %), RAM 73 336 bytes (22.4 %).
+`esp32dev`: Flash 972 244 bytes (74.2 %), RAM 77 504 bytes (23.7 %), RTC memory 12 bytes (breadcrumbs).
 The OLED libraries add about 44 KB of flash.
 Stack of the `ui` task: 6144 bytes, at least 3836 left free on hardware (with 4096 only 1932 were left,
 too close to the canary after drawing was added).
