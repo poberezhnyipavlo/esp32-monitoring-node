@@ -9,6 +9,7 @@
 #include <array>
 #include <atomic>
 
+#include "Breadcrumbs.h"
 #include "EventBus.h"
 #include "LogSender.h"
 #include "Logger.h"
@@ -141,6 +142,8 @@ RgbLed led{pins::kRgbRed, pins::kRgbGreen, pins::kRgbBlue};
 Oled oled;
 bool oled_ready = false;
 
+RTC_NOINIT_ATTR Breadcrumbs breadcrumbs;
+
 class Uplink {
 public:
     void begin() {
@@ -169,11 +172,17 @@ public:
             return;
         }
         last_rssi = wifi_.rssi();
+        breadcrumbs.steps.net = Step::kConnectMetrics;
         tcp_.update(now);
+        breadcrumbs.steps.net = Step::kIdle;
+        breadcrumbs.steps.net = Step::kConnectLogs;
         log_tcp_.update(now);
+        breadcrumbs.steps.net = Step::kIdle;
         if (log_tcp_.isOpen()) {
+            breadcrumbs.steps.net = Step::kSendLogs;
             const LogSendResult logs_result =
                 log_sender_.sendPending(dev_.data(), origin_.boot, millis());
+            breadcrumbs.steps.net = Step::kIdle;
             if (logs_result.sent > 0) {
                 Serial.printf(
                     "[net] logs sent %lu\n",
@@ -185,7 +194,9 @@ public:
         if (!tcp_.isOpen()) {
             return;
         }
+        breadcrumbs.steps.net = Step::kSendMetrics;
         const SendResult result = sender_.sendPending(origin_, millis());
+        breadcrumbs.steps.net = Step::kIdle;
         if (result.skipped > 0) {
             Serial.printf(
                 "[net] skipped %lu invalid samples\n",
@@ -276,7 +287,9 @@ void uiTaskMain(void* /*arg*/) {
             buildScreen(snapshot, status_indicator.isSensorStale(snapshot, now), network, now);
 
         if (oled_ready && screen != last_drawn) {
+            breadcrumbs.steps.ui = Step::kDrawOled;
             oled.draw(screen);
+            breadcrumbs.steps.ui = Step::kIdle;
             last_drawn = screen;
         }
 
@@ -330,6 +343,11 @@ ResetInfo describeReset(esp_reset_reason_t reason) {
 void setup() {
     Serial.begin(115200);
     delay(500);
+
+    const esp_reset_reason_t reason = esp_reset_reason();
+    const bool cold_start = reason == ESP_RST_POWERON || reason == ESP_RST_BROWNOUT;
+    const std::optional<TaskSteps> previous = startBoot(breadcrumbs, cold_start);
+
     Serial.println();
     Serial.println("esp32-monitoring-node");
 
@@ -376,11 +394,32 @@ void setup() {
         static_cast<unsigned>(sampling::kQueueCapacity)
     );
 
-    const ResetInfo reset = describeReset(esp_reset_reason());
+    const ResetInfo reset = describeReset(reason);
     std::array<char, logproto::kMaxTextLen> text{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    std::snprintf(text.data(), text.size(), "started, reason=%s", reset.name);
+    std::snprintf(
+        text.data(),
+        text.size(),
+        "started, reason=%s boot=%lu",
+        reset.name,
+        static_cast<unsigned long>(breadcrumbs.boot_count)
+    );
     logger.log(reset.level, "boot", text.data(), millis());
+
+    if (previous) {
+        std::array<char, logproto::kMaxTextLen> text_previous{};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        std::snprintf(
+            text_previous.data(),
+            text_previous.size(),
+            "previous boot ended at loop=%s net=%s ui=%s",
+            toString(previous->loop),
+            toString(previous->net),
+            toString(previous->ui)
+        );
+        logger.log(reset.level, "boot", text_previous.data(), millis());
+        Serial.println(text_previous.data());
+    }
     Serial.printf("[app] reset reason: %s\n", reset.name);
 }
 
@@ -396,9 +435,13 @@ void loop() {
     const uint32_t interval = last_sample_ms == 0 ? 0 : now - last_sample_ms;
     last_sample_ms = now;
 
+    breadcrumbs.steps.loop = Step::kReadDht;
     const std::optional<ClimateReading> reading = dht.read();
+    breadcrumbs.steps.loop = Step::kIdle;
     if (!reading) {
+        breadcrumbs.steps.loop = Step::kPublish;
         bus.publish(ClimateReadFailed{.sampled_at_ms = now});
+        breadcrumbs.steps.loop = Step::kIdle;
         Serial.println("[app] dht read failed");
         return;
     }
@@ -412,7 +455,9 @@ void loop() {
         .sampled_at_ms = now,
     };
 
+    breadcrumbs.steps.loop = Step::kPublish;
     bus.publish(measured);
+    breadcrumbs.steps.loop = Step::kIdle;
     snapshot_store.write(measured);
 
     xTaskNotifyGive(ui_task_handle);
