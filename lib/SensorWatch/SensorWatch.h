@@ -1,5 +1,7 @@
 #pragma once
 
+#include <metric_protocol/LogProtocol.h>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +11,6 @@
 #include "ClimateMeasured.h"
 #include "ClimateReadFailed.h"
 #include "Listener.h"
-#include "LogProtocol.h"
 #include "Logger.h"
 #include "Units.h"
 

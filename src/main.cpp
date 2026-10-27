@@ -238,7 +238,7 @@ private:
     };
     QueueSender<sampling::kQueueCapacity> sender_{queue, tcp_};
     LogSender<logs::kQueueCapacity> log_sender_{log_queue, log_tcp_};
-    std::array<char, metric::k_dev_len + 1> dev_{};
+    std::array<char, metric::kDevLen + 1> dev_{};
     metric::Origin origin_{};
 };
 

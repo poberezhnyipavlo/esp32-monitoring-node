@@ -119,7 +119,7 @@ The screenshot is from Wokwi, where no receiver listens, hence `TCP:no`.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt          # pinned clang-format, clang-tidy, PlatformIO
 
-pio test -e native                           # 124 unit tests on the host
+pio test -e native                           # 114 unit tests on the host
 scripts/format.sh                            # check formatting (--fix to rewrite)
 scripts/tidy.sh                              # static analysis of lib/ and test/
 
@@ -149,7 +149,7 @@ Five jobs on every push to `main` and every pull request (documentation-only cha
 
 | Job | What it checks | Catches |
 |---|---|---|
-| test | 124 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
+| test | 114 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
 | format | clang-format 21.1.8 | style drift |
 | tidy | clang-tidy 21.1.6 on `lib/` and `test/` | bug-prone code, naming, magic numbers, missing includes |
 | build | `esp32dev` and `wokwi` firmware builds | firmware that does not compile |

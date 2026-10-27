@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <metric_protocol/LogProtocol.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -6,7 +7,6 @@
 
 #include "ClimateMeasured.h"
 #include "ClimateReadFailed.h"
-#include "LogProtocol.h"
 #include "Logger.h"
 #include "SensorWatch.h"
 #include "SharedQueue.h"

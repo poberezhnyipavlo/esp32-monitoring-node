@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <metric_protocol/LogProtocol.h>
 
 #include <atomic>
 #include <cstddef>
@@ -8,7 +9,6 @@
 #include <thread>
 #include <utility>
 
-#include "LogProtocol.h"
 #include "Logger.h"
 #include "SharedQueue.h"
 

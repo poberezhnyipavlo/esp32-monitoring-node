@@ -30,7 +30,7 @@ public:
                 break;
             }
             const uint32_t age_ms = now_ms - sample.sampled_at_ms;
-            std::array<char, metric::k_max_message_len> buf{};
+            std::array<char, metric::kMaxMessageLen> buf{};
             const std::size_t len = metric::serialize(
                 origin,
                 sample.seq,

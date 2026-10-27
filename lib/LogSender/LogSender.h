@@ -1,11 +1,12 @@
 #pragma once
 
+#include <metric_protocol/LogProtocol.h>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
 #include "ByteSink.h"
-#include "LogProtocol.h"
 #include "Logger.h"
 #include "SharedQueue.h"
 #include "Units.h"

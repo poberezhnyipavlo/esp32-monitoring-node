@@ -12,14 +12,14 @@
 [[nodiscard]] constexpr double toTempAlert(TemperatureLevel level) {
     switch (level) {
         case TemperatureLevel::kTooCold:
-            return metric::temp_alert::k_too_cold;
+            return metric::temp_alert::kTooCold;
         case TemperatureLevel::kTooHot:
-            return metric::temp_alert::k_too_hot;
+            return metric::temp_alert::kTooHot;
         case TemperatureLevel::kNormal:
-            return metric::temp_alert::k_normal;
+            return metric::temp_alert::kNormal;
     }
 
-    return metric::temp_alert::k_normal;
+    return metric::temp_alert::kNormal;
 }
 
 template <std::size_t N>
@@ -30,7 +30,7 @@ public:
     void onClimateMeasured(const ClimateMeasured& event) override {
         queue_.push(
             Sample{
-                .name = metric::names::k_temperature_c,
+                .name = metric::names::kTemperatureC,
                 .value = event.temperature_c,
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
@@ -38,7 +38,7 @@ public:
         );
         queue_.push(
             Sample{
-                .name = metric::names::k_humidity_pct,
+                .name = metric::names::kHumidityPct,
                 .value = event.humidity_pct,
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
@@ -46,7 +46,7 @@ public:
         );
         queue_.push(
             Sample{
-                .name = metric::names::k_temp_alert,
+                .name = metric::names::kTempAlert,
                 .value = toTempAlert(event.level),
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
@@ -54,7 +54,7 @@ public:
         );
         queue_.push(
             Sample{
-                .name = metric::names::k_dht_ok,
+                .name = metric::names::kDhtOk,
                 .value = 1,
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
@@ -65,7 +65,7 @@ public:
     void onClimateReadFailed(const ClimateReadFailed& event) override {
         queue_.push(
             Sample{
-                .name = metric::names::k_dht_ok,
+                .name = metric::names::kDhtOk,
                 .value = 0,
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,

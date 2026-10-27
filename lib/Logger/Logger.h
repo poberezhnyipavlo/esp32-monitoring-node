@@ -1,5 +1,7 @@
 #pragma once
 
+#include <metric_protocol/LogProtocol.h>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -7,7 +9,6 @@
 #include <mutex>
 #include <string_view>
 
-#include "LogProtocol.h"
 #include "SharedQueue.h"
 
 struct LogEntry {
