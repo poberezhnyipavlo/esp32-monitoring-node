@@ -4,7 +4,7 @@
 
 sig::Mac MbedHmacSigner::sign(const char* data, std::size_t len) const {
     sig::Mac mac{};
-    const mbedtls_md_info_t* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA3_256);
+    const mbedtls_md_info_t* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
     if (sha256 == nullptr) {
         return mac;
     }
