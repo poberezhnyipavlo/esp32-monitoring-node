@@ -2,6 +2,7 @@
 
 #include <metric_protocol/MetricNames.h>
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -22,6 +23,11 @@
     return metric::temp_alert::kNormal;
 }
 
+[[nodiscard]] inline double toTenths(float value) {
+    constexpr double kTenthsPerUnit = 10.0;
+    return std::round(static_cast<double>(value) * kTenthsPerUnit) / kTenthsPerUnit;
+}
+
 template <std::size_t N>
 class QueueListener : public Listener {
 public:
@@ -31,7 +37,7 @@ public:
         queue_.push(
             Sample{
                 .name = metric::names::kTemperatureC,
-                .value = event.temperature_c,
+                .value = toTenths(event.temperature_c),
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
             }
@@ -39,7 +45,7 @@ public:
         queue_.push(
             Sample{
                 .name = metric::names::kHumidityPct,
-                .value = event.humidity_pct,
+                .value = toTenths(event.humidity_pct),
                 .seq = next_seq_++,
                 .sampled_at_ms = event.sampled_at_ms,
             }
