@@ -5,6 +5,7 @@
 #include <esp_system.h>
 #include <esp_task_wdt.h>
 #include <metric_protocol/MetricProtocol.h>
+#include <metric_protocol/Signature.h>
 
 #include <array>
 #include <atomic>
@@ -20,6 +21,7 @@
 #include "SampleQueue.h"
 #include "Screen.h"
 #include "SensorWatch.h"
+#include "SigningSink.h"
 #include "SnapshotStore.h"
 #include "StatusIndicator.h"
 #include "TemperatureAlert.h"
@@ -28,6 +30,7 @@
 #include "drivers/DhtSensor.h"
 #include "drivers/Oled.h"
 #include "drivers/RgbLed.h"
+#include "net/MbedHmacSigner.h"
 #include "net/TcpLink.h"
 #include "net/WifiLink.h"
 
@@ -40,6 +43,7 @@ constexpr const char* kWifiSsid = "Wokwi-GUEST";
 constexpr const char* kWifiPassword = "";
 constexpr int32_t kWifiChannel = 6;
 constexpr const char* kMonitorHost = "10.13.37.1";
+constexpr const char* kHmacKeyHex = "";
 #elif __has_include("secrets.h")
 #include "secrets.h"
 constexpr int32_t kWifiChannel = 0;
@@ -151,6 +155,14 @@ RTC_NOINIT_ATTR Breadcrumbs breadcrumbs;
 class Uplink {
 public:
     void begin() {
+        const auto key = sig::parseKey(kHmacKeyHex);
+        if (!key) {
+            Serial.println("[net] FATAL: kHmacKeyHex in secrets.h must be 64 lowercase hex digits");
+            abort();  // a config error: reboot with the message in Serial, never send unsigned
+                      // lines
+        }
+        signer_.setKey(*key);
+
         wifi_.begin();
         std::array<uint8_t, 6> mac{};
         esp_efuse_mac_get_default(mac.data());
@@ -236,8 +248,11 @@ private:
         tcp::kConnectTimeoutMs,
         RetryTimer{tcp::kRetryBaseMs, tcp::kRetryMaxMs, tcp::kStableMs}
     };
-    QueueSender<sampling::kQueueCapacity> sender_{queue, tcp_};
-    LogSender<logs::kQueueCapacity> log_sender_{log_queue, log_tcp_};
+    MbedHmacSigner signer_{};
+    SigningSink signed_tcp_{tcp_, signer_};
+    SigningSink signed_log_tcp_{log_tcp_, signer_};
+    QueueSender<sampling::kQueueCapacity> sender_{queue, signed_tcp_};
+    LogSender<logs::kQueueCapacity> log_sender_{log_queue, signed_log_tcp_};
     std::array<char, metric::kDevLen + 1> dev_{};
     metric::Origin origin_{};
 };
