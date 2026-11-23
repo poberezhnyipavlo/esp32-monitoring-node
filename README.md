@@ -3,8 +3,8 @@
 [![CI](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml/badge.svg)](https://github.com/poberezhnyipavlo/esp32-monitoring-node/actions/workflows/ci.yml)
 
 ESP32 monitoring node: temperature and humidity (DHT11) sent over TCP in
-[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v2.1, with an RGB status LED
-and an OLED display.
+[`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v3.1, with an RGB status LED
+and an OLED display. Every line is signed with HMAC-SHA256 (see "Signed lines")
 Evolved from [esp32-lab](https://github.com/poberezhnyipavlo/esp32-lab) (stages 07 and 13).
 
 ## Metrics
@@ -17,6 +17,9 @@ Every 2 s, one sample becomes four lines (names and values from `metric_protocol
 | `humidity_pct` | %RH |
 | `temp_alert` | `-1` too cold / `0` normal / `1` too hot (18…27 °C, 0.5 °C hysteresis) |
 | `dht_ok` | `1` |
+
+Temperature and humidity are rounded to 0.1 before sending: the DHT reports tenths, and the float→double
+conversion would otherwise send `25.39999962` for 25.4.
 
 When the sensor does not answer, only `dht_ok` = `0` is sent, so the receiver can tell
 "sensor dead" (`dht_ok=0` keeps coming) from "node or network down" (nothing comes).
@@ -72,6 +75,21 @@ socat -u TCP-LISTEN:9003,reuseaddr,fork STDOUT
 
 `nc -lk 9003` is not enough: after the board resets, the old connection stays half-open, `nc` keeps
 serving it, and the first lines of the new run are lost.
+
+## Signed lines
+
+Every metric and log line ends with `sig=<64 hex>`: HMAC-SHA256 of the line with a key shared with the
+[monitor](https://github.com/poberezhnyipavlo/monitor). The monitor drops unsigned lines and lines signed with
+another key, so only this node can write to it.
+
+- The key is `kHmacKeyHex` in `include/secrets.h` (not in git): 64 lowercase hex digits,
+  `openssl rand -hex 32`. The monitor gets the same value in `MONITOR_HMAC_KEY`.
+- A wrong key format stops the node at boot with `[net] FATAL: kHmacKeyHex ...` in Serial: it never sends
+  unsigned lines.
+- Signing is a `ByteSink` decorator (`SigningSink`) between the senders and `TcpLink`: `QueueSender` and
+  `LogSender` did not change. The MAC is computed with mbedTLS from the ESP32 core.
+- Not secret: lines travel in clear text; and the key can be read from flash by anyone holding the board
+  (flash encryption and secure boot are not enabled).
 
 ## Hardware
 
