@@ -43,7 +43,7 @@ constexpr const char* kWifiSsid = "Wokwi-GUEST";
 constexpr const char* kWifiPassword = "";
 constexpr int32_t kWifiChannel = 6;
 constexpr const char* kMonitorHost = "10.13.37.1";
-constexpr const char* kHmacKeyHex = "";
+constexpr const char* kHmacKeyHex = "0000000000000000000000000000000000000000000000000000000000000000";
 #elif __has_include("secrets.h")
 #include "secrets.h"
 constexpr int32_t kWifiChannel = 0;
@@ -158,8 +158,8 @@ public:
         const auto key = sig::parseKey(kHmacKeyHex);
         if (!key) {
             Serial.println("[net] FATAL: kHmacKeyHex in secrets.h must be 64 lowercase hex digits");
-            abort();  // a config error: reboot with the message in Serial, never send unsigned
-                      // lines
+            // a config error: reboot with the message in Serial, never send unsigned lines
+            abort();
         }
         signer_.setKey(*key);
 
