@@ -137,7 +137,7 @@ The screenshot is from Wokwi, where no receiver listens, hence `TCP:no`.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt          # pinned clang-format, clang-tidy, PlatformIO
 
-pio test -e native                           # 114 unit tests on the host
+pio test -e native                           # 119 unit tests on the host
 scripts/format.sh                            # check formatting (--fix to rewrite)
 scripts/tidy.sh                              # static analysis of lib/ and test/
 
@@ -167,7 +167,7 @@ Five jobs on every push to `main` and every pull request (documentation-only cha
 
 | Job | What it checks | Catches |
 |---|---|---|
-| test | 114 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
+| test | 119 unit tests on Ubuntu (libstdc++) | logic bugs; includes that only work with libc++ on macOS |
 | format | clang-format 21.1.8 | style drift |
 | tidy | clang-tidy 21.1.6 on `lib/` and `test/` | bug-prone code, naming, magic numbers, missing includes |
 | build | `esp32dev` and `wokwi` firmware builds | firmware that does not compile |
@@ -223,7 +223,7 @@ Indentation is 4 spaces; arguments that do not fit go one per line.
 
 ## Sizes
 
-`esp32dev`: Flash 972 244 bytes (74.2 %), RAM 77 504 bytes (23.7 %), RTC memory 12 bytes (breadcrumbs).
+`esp32dev`: Flash 973 744 bytes (74.3 %), RAM 78 152 bytes (23.9 %), RTC memory 12 bytes (breadcrumbs).
 The OLED libraries add about 44 KB of flash.
 Stack of the `ui` task: 6144 bytes, at least 3836 left free on hardware (with 4096 only 1932 were left,
 too close to the canary after drawing was added).
