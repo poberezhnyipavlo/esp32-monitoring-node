@@ -4,8 +4,45 @@
 
 ESP32 monitoring node: temperature and humidity (DHT11) sent over TCP in
 [`metric-protocol`](https://github.com/poberezhnyipavlo/metric-protocol) v3.1, with an RGB status LED
-and an OLED display. Every line is signed with HMAC-SHA256 (see "Signed lines")
+and an OLED display. Every line is signed with HMAC-SHA256 (see "Signed lines").
 Evolved from [esp32-lab](https://github.com/poberezhnyipavlo/esp32-lab) (stages 07 and 13).
+
+Part of a three-repository project:
+
+| Repository | Role |
+|---|---|
+| **esp32-monitoring-node** (this one) | ESP32 firmware: DHT11, queue, TCP, OLED, black box |
+| [metric-protocol](https://github.com/poberezhnyipavlo/metric-protocol) | the text wire format shared by both sides (C++17, no dependencies) |
+| [monitor](https://github.com/poberezhnyipavlo/monitor) | the receiver: TCP, HMAC check, LMDB, RRD, gRPC |
+
+```mermaid
+flowchart LR
+    dht["DHT11"] --> loop
+    subgraph node["ESP32 node"]
+        loop["loop task<br/>every 2 s"] --> bus["EventBus"]
+        bus --> queue["sample queue<br/>1000 lines"]
+        bus --> watch["SensorWatch"] --> logq["log queue<br/>32 events"]
+        loop --> snap["snapshot"] --> ui["ui task"]
+        queue --> net["net task<br/>HMAC-SHA256 signing"]
+        logq --> net
+    end
+    ui --> out["RGB LED + OLED"]
+    net -- "TCP 9002 metrics" --> monitor["monitor"]
+    net -- "TCP 9003 logs" --> monitor
+```
+
+## Highlights
+
+- **Three FreeRTOS tasks** (`loop` samples, `net` sends, `ui` shows status) pinned to cores, sharing data
+  through mutex-protected queues and atomics.
+- **Store and forward:** samples wait in a queue while Wi-Fi or the receiver is down and arrive later with
+  their age; reconnects use exponential backoff.
+- **Signed lines:** every metric and log line carries an HMAC-SHA256 signature (mbedTLS), so the monitor
+  accepts data only from this node.
+- **Black box:** task watchdog, reset reason, and breadcrumbs in RTC memory that show where a hung task
+  was waiting; a `faults` build crashes on purpose to test it.
+- **Testable without hardware:** logic lives in Arduino-free libraries with 119 GoogleTest unit tests on the
+  host; CI runs them along with clang-format, clang-tidy, firmware builds and a Wokwi simulation.
 
 ## Metrics
 
